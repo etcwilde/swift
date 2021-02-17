@@ -274,6 +274,7 @@ public:
   void visitAsyncHandlerAttr(AsyncHandlerAttr *attr);
   void visitActorAttr(ActorAttr *attr);
   void visitActorIndependentAttr(ActorIndependentAttr *attr);
+  void visitCompletionHandlerAsyncAttr(CompletionHandlerAsyncAttr *attr);
   void visitGlobalActorAttr(GlobalActorAttr *attr);
   void visitAsyncAttr(AsyncAttr *attr);
   void visitMarkerAttr(MarkerAttr *attr);
@@ -5379,6 +5380,12 @@ void AttributeChecker::visitActorIndependentAttr(ActorIndependentAttr *attr) {
   if (auto VD = dyn_cast<ValueDecl>(D)) {
     (void)getActorIsolation(VD);
   }
+}
+
+void AttributeChecker::visitCompletionHandlerAsyncAttr(CompletionHandlerAsyncAttr *attr) {
+  // TODO: Ensure that the index indicated actually points to a closure type
+  //       and if possible, that the types match up
+  llvm_unreachable("Not implemented!");
 }
 
 void AttributeChecker::visitGlobalActorAttr(GlobalActorAttr *attr) {

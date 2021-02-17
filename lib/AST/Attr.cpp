@@ -1164,6 +1164,8 @@ StringRef DeclAttribute::getAttrName() const {
     }
     llvm_unreachable("Invalid actorIndependent kind");
   }
+  case DAK_CompletionHandlerAsync:
+    return "completionHandlerAsync";
   case DAK_Optimize: {
     switch (cast<OptimizeAttr>(this)->getMode()) {
     case OptimizationMode::NoOptimization:

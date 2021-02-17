@@ -1345,6 +1345,27 @@ public:
   }
 };
 
+/// Represents the mapping between a synchronous function declaration and the
+/// corresponding async function, defined by @completionHandlerAsync
+/// Stores name of async function and which index is the completion handler
+class CompletionHandlerAsyncAttr: public DeclAttribute {
+public:
+  CompletionHandlerAsyncAttr(SourceLoc atLoc, SourceRange range,
+                             StringRef mappedFunction,
+                             uint64_t completionHandlerIndex,
+                             bool implicit)
+    : DeclAttribute(DAK_CompletionHandlerAsync, atLoc, range, implicit),
+      mappedFunctionName(mappedFunction),
+      completionHandlerIndex(completionHandlerIndex) {}
+
+  const StringRef mappedFunctionName;
+  const uint64_t completionHandlerIndex;
+
+  static bool classof(const DeclAttribute *DA) {
+    return DA->getKind() == DAK_CompletionHandlerAsync;
+  }
+};
+
 /// Defines the attribute that we use to model documentation comments.
 class RawDocCommentAttr : public DeclAttribute {
   /// Source range of the attached comment.  This comment is located before

@@ -1754,6 +1754,9 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
     break;
   }
 
+  case DAK_CompletionHandlerAsync: {
+    llvm_unreachable("Completion Handler Async attr parsing not implemented");
+  }
   case DAK_Optimize: {
     if (!consumeIf(tok::l_paren)) {
       diagnose(Loc, diag::attr_expected_lparen, AttrName,

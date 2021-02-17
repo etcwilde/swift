@@ -1838,6 +1838,10 @@ namespace decls_block {
     BCFixed<1>  // unsafe flag
   >;
 
+  using CompletionHandlerAsyncDeclAttrLayout = BCRecordLayout<
+    CompletionHandlerAsync_DECL_ATTR
+  >;
+
   using OptimizeDeclAttrLayout = BCRecordLayout<
     Optimize_DECL_ATTR,
     BCFixed<2>  // optimize value

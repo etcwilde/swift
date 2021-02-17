@@ -2385,6 +2385,11 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
       return;
     }
 
+    case DAK_CompletionHandlerAsync: {
+
+      llvm_unreachable("Not implemented!");
+    }
+
     case DAK_Optimize: {
       auto *theAttr = cast<OptimizeAttr>(DA);
       auto abbrCode = S.DeclTypeAbbrCodes[OptimizeDeclAttrLayout::Code];
