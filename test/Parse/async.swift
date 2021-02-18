@@ -80,3 +80,57 @@ func testAsyncLet() async {
 }
 
 async func asyncIncorrectly() { } // expected-error{{'async' must be written after the parameter list of a function}}{{1-7=}}{{30-30= async}}
+
+// completion handler async mapping parsing errors
+
+// expected-error@+1{{expected '(' in 'completionHandlerAsync' attribute}}
+@completionHandlerAsync
+func compHandlerFunc1() {}
+
+// expected-error@+1:28{{expected a colon ':' after 'for'}}
+@completionHandlerAsync(for)
+func compHandlerFunc2() {}
+
+// expected-error@+1:25{{missing label 'for:' in '@completionHandlerAsync' attribute}}
+@completionHandlerAsync(foo: "asynFunc(task: String)", completionHandlerIndex: 1)
+func compHandleFunc3(task: String, completionHandler: @escaping (Int) -> Void) {}
+
+// expected-error@+1:30{{expected string literal in 'completionHandlerAsync' attribute}}
+@completionHandlerAsync(for: 32, completionHandlerIndex: 1)
+func compHandleFunc4(task: String, completionHandler: @escaping (Int) -> Void) {}
+
+// expected-error@+1:55{{expected ',' separator}}
+@completionHandlerAsync(for: "asyncFunc(task: String)")
+func compHandleFunc5(task: String, completionHandler: @escaping (Int) -> Void) {}
+
+// expected-error@+3:25{{missing label 'for:' in '@completionHandlerAsync' attribute}}
+// expected-error@+2:30{{expected string literal in 'completionHandlerAsync' attribute}}
+// expected-error@+1:32{{expected ',' separator}}
+@completionHandlerAsync(foo: 32)
+func compHandleFunc6() {}
+
+// expected-error@+1:57{{missing label 'completionHandlerIndex:' in '@completionHandlerAsync' attribute}}
+@completionHandlerAsync(for: "asyncFunc(task: String)", comHandleIdx: 13)
+func compHandlerFunc7() {}
+
+// expected-error@+1:81{{expected string literal in 'completionHandlerAsync' attribute}}
+@completionHandlerAsync(for: "asyncFunc(task: String)", completionHandlerIndex: "99")
+func compHandlerFunc8() {}
+
+// expected-error@+4:25{{missing label 'for:' in '@completionHandlerAsync' attribute}}
+// expected-error@+3:30{{expected string literal in 'completionHandlerAsync' attribute}}
+// expected-error@+2:34{{missing label 'completionHandlerIndex:' in '@completionHandlerAsync' attribute}}
+// expected-error@+1:42{{expected string literal in 'completionHandlerAsync' attribute}}
+@completionHandlerAsync(foo: 19, foobar: "19")
+func compHandlerFunc9() {}
+
+// Without the closing paren, it's hard to know exactly what the intent is or
+// where to jump, so we don't jump over the tokens.
+// expected-error@+6:54{{expected ')' in 'completionHandlerAsync' attribute}}
+// expected-error@+5:25{{expected declaration}}
+// expected-error@+4:28{{expected pattern}}
+// expected-error@+3:30{{expected type}}
+// expected-error@+2:30{{expected 'in' after for-each pattern}}
+// expected-error@+1{{expected '{' to start the body of for-each loop}}
+@completionHandlerAsync(for: "asynFunc(task: String)"
+func compHandlerFunc10(task: String, completionHandler: @escaping (Int) -> Void) {}

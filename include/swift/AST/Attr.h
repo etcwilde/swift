@@ -1351,14 +1351,14 @@ public:
 class CompletionHandlerAsyncAttr: public DeclAttribute {
 public:
   CompletionHandlerAsyncAttr(SourceLoc atLoc, SourceRange range,
-                             StringRef mappedFunction,
+                             const SourceLoc mappedFunctionLoc,
                              uint64_t completionHandlerIndex,
                              bool implicit)
     : DeclAttribute(DAK_CompletionHandlerAsync, atLoc, range, implicit),
-      mappedFunctionName(mappedFunction),
+      mappedFunctionLoc(mappedFunctionLoc),
       completionHandlerIndex(completionHandlerIndex) {}
 
-  const StringRef mappedFunctionName;
+  const SourceLoc mappedFunctionLoc;
   const uint64_t completionHandlerIndex;
 
   static bool classof(const DeclAttribute *DA) {

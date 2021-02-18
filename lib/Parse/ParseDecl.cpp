@@ -1755,7 +1755,122 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
   }
 
   case DAK_CompletionHandlerAsync: {
-    llvm_unreachable("Completion Handler Async attr parsing not implemented");
+    // @completionHandlerAsync(for: Foobar, completionHandlerIndex: 32)
+
+    if (!consumeIf(tok::l_paren)) {
+      diagnose(Loc, diag::attr_expected_lparen, AttrName,
+               DeclAttribute::isDeclModifier(DK));
+      return false;
+    }
+
+    bool isBad = false;
+    auto badLoc = SourceLoc();
+
+    // Ensure that we have a valid closing paren somewhere
+    {
+      BacktrackingScope Scope(*this);
+      // Good tokens include "tok::kw_for", "tok::string_literal", "tok::comma",
+      //                     "tok::integer_literal", "tok::identifier",
+      //                     "tok::colon"
+      // If we see something else before seeing a closing brace, we're lost and
+      // should complain
+      auto previousLoc = SourceLoc();
+      while (Tok.isAny(tok::kw_for, tok::identifier, tok::colon,
+                       tok::string_literal, tok::comma, tok::integer_literal)) {
+        // The end of the previous token is where the closing paren should go if
+        // we need to add it
+        previousLoc = Tok.getRange().getEnd();
+        consumeToken();
+      }
+      if (Tok.isNot(tok::r_paren)) {
+        isBad = true;
+        badLoc = previousLoc;
+      }
+    }
+
+    if (isBad) {
+      diagnose(badLoc, diag::attr_expected_rparen, AttrName,
+               DeclAttribute::isDeclModifier(DK));
+      return false;
+    }
+
+    // If we get here, we know that the parens contain things that we expect.
+    // We can safely collect everything between them and make sure they are what
+    // we expect.
+    auto stopOrContinue = [&isBad, this]() -> bool {
+      bool stop = this->Tok.is(tok::r_paren);
+      this->consumeToken(); // Move on and hope the rest makes sense
+      isBad |= true;
+      return stop;
+    };
+
+    Tok.setKind(tok::identifier);
+    if (parseSpecificIdentifier("for", diag::attr_missing_label,
+                                "for", AttrName)) {
+      if (stopOrContinue())
+        return false;
+    }
+
+    if (parseToken(tok::colon, diag::expected_colon_after_label, "for")) {
+      if (stopOrContinue())
+        return false;
+    }
+
+    auto mappedFunctionLoc = SourceLoc();
+    if (!Tok.is(tok::string_literal)) {
+      diagnose(Tok.getLoc(), diag::attr_expected_string_literal,
+               AttrName);
+      if (stopOrContinue())
+        return false;
+    } else {
+      mappedFunctionLoc = consumeToken();
+    }
+
+    if (!consumeIf(tok::comma)) {
+      diagnose(getEndOfPreviousLoc(), diag::expected_separator, ",");
+      if (stopOrContinue())
+        return false;
+    }
+
+    if (parseSpecificIdentifier("completionHandlerIndex",
+                                diag::attr_missing_label,
+                                "completionHandlerIndex", AttrName)) {
+      if (stopOrContinue())
+        return false;
+    }
+
+    if (parseToken(tok::colon, diag::expected_colon_after_label,
+                   "completionHandlerIndex")) {
+      if (stopOrContinue())
+        return false;
+    }
+
+    uint64_t handlerIndex;
+    if (Tok.getText().getAsInteger(0, handlerIndex)) {
+      diagnose(Tok.getLoc(), diag::attr_expected_string_literal, AttrName);
+      if (stopOrContinue())
+        return false;
+    } else {
+      consumeToken(tok::integer_literal);
+    }
+
+
+    if (!consumeIf(tok::r_paren)) {
+      diagnose(Tok.getLoc(), diag::attr_expected_rparen,
+               AttrName, DeclAttribute::isDeclModifier(DK));
+      if (stopOrContinue())
+        return false;
+    }
+
+    AttrRange = SourceRange(Loc, Tok.getRange().getStart());
+
+    if (isBad)
+      return false;
+
+    if (!DiscardAttribute)
+      Attributes.add(new (Context) CompletionHandlerAsyncAttr(AtLoc, AttrRange,
+            mappedFunctionLoc, handlerIndex, /*implicit=*/false));
+    break;
   }
   case DAK_Optimize: {
     if (!consumeIf(tok::l_paren)) {
