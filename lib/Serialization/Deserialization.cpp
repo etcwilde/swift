@@ -4186,6 +4186,18 @@ llvm::Error DeclDeserializer::deserializeDeclAttributes() {
         break;
       }
 
+      case decls_block::CompletionHandlerAsync_DECL_ATTR: {
+        uint64_t functionNameID;
+        uint64_t completionHandlerIndex;
+
+        serialization::decls_block::CompletionHandlerAsyncDeclAttrLayout::readRecord(
+            scratch, functionNameID, completionHandlerIndex);
+        llvm::StringRef functionName = MF.getIdentifierText(functionNameID);
+        Attr = new (ctx)
+            CompletionHandlerAsyncAttr(functionName, completionHandlerIndex);
+        break;
+      }
+
       case decls_block::Optimize_DECL_ATTR: {
         unsigned kind;
         serialization::decls_block::OptimizeDeclAttrLayout::readRecord(

@@ -2386,8 +2386,14 @@ class Serializer::DeclSerializer : public DeclVisitor<DeclSerializer> {
     }
 
     case DAK_CompletionHandlerAsync: {
-
-      llvm_unreachable("Not implemented!");
+      auto *theAttr = cast<CompletionHandlerAsyncAttr>(DA);
+      auto abbrCode =
+          S.DeclTypeAbbrCodes[CompletionHandlerAsyncDeclAttrLayout::Code];
+      IdentifierID mappedFuncNameID = S.addUniquedStringRef(theAttr->mappedFunctionName);
+      CompletionHandlerAsyncDeclAttrLayout::emitRecord(
+          S.Out, S.ScratchRecord, abbrCode, mappedFuncNameID,
+          theAttr->completionHandlerIndex);
+      return;
     }
 
     case DAK_Optimize: {

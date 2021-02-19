@@ -1816,6 +1816,7 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
         return false;
     }
 
+    StringRef mappedFunctionName;
     auto mappedFunctionLoc = SourceLoc();
     if (!Tok.is(tok::string_literal)) {
       diagnose(Tok.getLoc(), diag::attr_expected_string_literal,
@@ -1823,6 +1824,7 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
       if (stopOrContinue())
         return false;
     } else {
+      mappedFunctionName = Tok.getText();
       mappedFunctionLoc = consumeToken();
     }
 
@@ -1870,7 +1872,8 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
 
     if (!DiscardAttribute)
       Attributes.add(new (Context) CompletionHandlerAsyncAttr(AtLoc, AttrRange,
-            mappedFunctionLoc, indexLoc, handlerIndex, /*implicit=*/false));
+            mappedFunctionLoc, mappedFunctionName, indexLoc, handlerIndex,
+            /*implicit=*/false));
     break;
   }
   case DAK_Optimize: {

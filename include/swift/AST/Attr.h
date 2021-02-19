@@ -1352,15 +1352,27 @@ class CompletionHandlerAsyncAttr: public DeclAttribute {
 public:
   CompletionHandlerAsyncAttr(SourceLoc atLoc, SourceRange range,
                              const SourceLoc mappedFunctionLoc,
+                             const StringRef mappedFunction,
                              const SourceLoc indexLoc,
                              uint64_t completionHandlerIndex,
                              bool implicit)
     : DeclAttribute(DAK_CompletionHandlerAsync, atLoc, range, implicit),
       mappedFunctionLoc(mappedFunctionLoc),
+      mappedFunctionName(mappedFunction),
       indexLoc(indexLoc),
       completionHandlerIndex(completionHandlerIndex) {}
 
+  CompletionHandlerAsyncAttr(const StringRef mappedFunction,
+                             uint64_t completionHandlerIndex)
+    : CompletionHandlerAsyncAttr(SourceLoc(), SourceRange(),
+                                 /*mappedFunctionLoc*/SourceLoc(),
+                                 mappedFunction,
+                                 /*indexLoc*/SourceLoc(),
+                                 completionHandlerIndex,
+                                 /*implicit*/false) {}
+
   const SourceLoc mappedFunctionLoc;
+  const StringRef mappedFunctionName;
   const SourceLoc indexLoc;
   const uint64_t completionHandlerIndex;
 
