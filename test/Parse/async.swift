@@ -124,6 +124,15 @@ func compHandlerFunc8() {}
 @completionHandlerAsync(foo: 19, foobar: "19")
 func compHandlerFunc9() {}
 
+// expected-error@+3:20{{'@completionHandlerAsync' parameter 'completionHandlerIndex' must have a function type}}
+// expected-error@+2:35{{'@completionHandlerAsync' attribute attached to async function}}
+@completionHandlerAsync(for: "asyncFunc", completionHandlerIndex: 0)
+func myAsyncFunc(_ value: String) async {}
+
+// expected-error@+1:67{{'@completionHandlerAsync' parameter 'completionHandlerIndex' out of range}}
+@completionHandlerAsync(for: "asyncFunc", completionHandlerIndex: 1)
+func myAsyncFunc1(_ value: String) {}
+
 // Without the closing paren, it's hard to know exactly what the intent is or
 // where to jump, so we don't jump over the tokens.
 // expected-error@+6:54{{expected ')' in 'completionHandlerAsync' attribute}}

@@ -5383,9 +5383,41 @@ void AttributeChecker::visitActorIndependentAttr(ActorIndependentAttr *attr) {
 }
 
 void AttributeChecker::visitCompletionHandlerAsyncAttr(CompletionHandlerAsyncAttr *attr) {
+  // TODO: We should parse the function decl that the attribute points at and
+  //       verify that the declaration matches the function matches the types.
   // TODO: Ensure that the index indicated actually points to a closure type
   //       and if possible, that the types match up
-  llvm_unreachable("Not implemented!");
+
+  auto funcDecl = cast<AbstractFunctionDecl>(D);
+  if (funcDecl->hasAsync()) {
+    diagnose(funcDecl->getAsyncLoc(), diag::pound_error,
+             "'@completionHandlerAsync' attribute attached to async function");
+  }
+
+  // TODO: Figure out what situations lead to a nullptr here and emit an error
+  const ParameterList *params = funcDecl->getParameters();
+  if (!params)
+    llvm_unreachable("The parameter list is nullptr?");
+
+  // Ensure that this function has enough arguments to actually have a
+  // completion handler in the right place, and that the index actually has a
+  // type that is usable.
+
+  if (params->size() <= attr->completionHandlerIndex) {
+    diagnose(attr->indexLoc, diag::pound_error,
+             "'@completionHandlerAsync' parameter 'completionHandlerIndex' out "
+             "of range");
+    return;
+  }
+
+  auto completionHandler = params->get(attr->completionHandlerIndex);
+  auto completionHandlerType = completionHandler->getType()->getAs<FunctionType>();
+  if (!completionHandlerType) {
+    diagnose(completionHandler->getLoc(), diag::pound_error,
+             "'@completionHandlerAsync' parameter 'completionHandlerIndex' "
+             "must have a function type");
+    return;
+  }
 }
 
 void AttributeChecker::visitGlobalActorAttr(GlobalActorAttr *attr) {

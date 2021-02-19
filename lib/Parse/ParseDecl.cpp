@@ -1846,12 +1846,13 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
     }
 
     uint64_t handlerIndex;
+    auto indexLoc = SourceLoc();
     if (Tok.getText().getAsInteger(0, handlerIndex)) {
       diagnose(Tok.getLoc(), diag::attr_expected_string_literal, AttrName);
       if (stopOrContinue())
         return false;
     } else {
-      consumeToken(tok::integer_literal);
+      indexLoc = consumeToken(tok::integer_literal);
     }
 
 
@@ -1869,7 +1870,7 @@ bool Parser::parseNewDeclAttribute(DeclAttributes &Attributes, SourceLoc AtLoc,
 
     if (!DiscardAttribute)
       Attributes.add(new (Context) CompletionHandlerAsyncAttr(AtLoc, AttrRange,
-            mappedFunctionLoc, handlerIndex, /*implicit=*/false));
+            mappedFunctionLoc, indexLoc, handlerIndex, /*implicit=*/false));
     break;
   }
   case DAK_Optimize: {
