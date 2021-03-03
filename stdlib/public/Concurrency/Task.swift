@@ -600,7 +600,7 @@ public func runAsyncAndBlock(_ asyncFun: @escaping () async -> ())
 @_silgen_name("swift_task_asyncMainDrainQueue")
 public func _asyncMainDrainQueue() -> Never
 
-public func _runAsyncMain(_ asyncFun: @escaping () async throws -> ()) {
+public func _runAsyncMain(_ asyncFun: @concurrent @escaping () async throws -> ()) {
 #if os(Windows)
   Task.runDetached {
     do {
@@ -612,7 +612,7 @@ public func _runAsyncMain(_ asyncFun: @escaping () async throws -> ()) {
   }
 #else
   @MainActor @concurrent
-  func _doMain(_ asyncFun: @escaping () async throws -> ()) async {
+  func _doMain(_ asyncFun: @concurrent @escaping () async throws -> ()) async {
     do {
       try await asyncFun()
     } catch {
