@@ -1959,6 +1959,45 @@ namespace {
 
       auto value = valueRef.getDecl();
 
+      ApplyExpr *topCall = applyStack.empty() ? nullptr : applyStack.back();
+
+#if 1
+#if 1
+      // It's okay to reference an actor function so long as we don't call it
+      if (isa<AbstractFunctionDecl>(value) &&
+          (!topCall || (topCall && topCall->getFn()->getSemanticsProvidingExpr() != declRefExpr))) {
+        return false;
+      }
+#endif
+
+#if 1
+      if (topCall && topCall->getFn()->getSemanticsProvidingExpr() == declRefExpr) {
+        // We want to check that the functionDecl that we're calling actually
+        // came from somewhere safe, not just that the variable is safe.
+        // Unwrap the assignments to the initial assignment
+        ValueDecl *tracedValue = value;
+        while (auto varDecl = dyn_cast_or_null<VarDecl>(tracedValue)) {
+          PatternBindingDecl *binding = varDecl->getParentPatternBinding();
+          if (!binding) {
+            tracedValue = nullptr;
+            break;
+          }
+          const unsigned varIdx = binding->getPatternEntryIndexForVarDecl(varDecl);
+          if (DeclRefExpr *declRefExpr = dyn_cast_or_null<DeclRefExpr>(binding->getInit(varIdx)))
+            tracedValue = declRefExpr->getDecl();
+          else
+            tracedValue = nullptr;
+        }
+#if 1
+        if (tracedValue) {
+          value = tracedValue;
+          valueRef = ConcreteDeclRef(value);
+        }
+#endif
+      }
+#endif
+#endif
+
       if (value->isLocalCapture())
         return checkLocalCapture(valueRef, loc, declRefExpr);
 
