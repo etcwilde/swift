@@ -279,8 +279,7 @@ func blender(_ peeler : () -> Void) {
   // expected-error@+1 {{var 'dollarsInBananaStand' isolated to global actor 'BananaActor' can not be used 'inout' from different global actor 'OrangeActor'}}
   await takeInout(&dollarsInBananaStand)
 
-  _ = wisk // expected-error {{global function 'wisk' isolated to global actor 'BananaActor' can not be referenced from different global actor 'OrangeActor'}}
-
+  _ = wisk
 
   await wisk({})
   // expected-warning@-1{{cannot pass argument of non-sendable type 'Any' across actors}}

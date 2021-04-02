@@ -124,7 +124,8 @@ extension MyActor {
 
     // Global actors
     syncGlobalActorFunc() /// expected-error{{global function 'syncGlobalActorFunc()' isolated to global actor 'SomeGlobalActor' can not be referenced from a non-isolated synchronous context}}
-    _ = syncGlobalActorFunc // expected-error{{global function 'syncGlobalActorFunc()' isolated to global actor 'SomeGlobalActor' can not be referenced from a non-isolated context}}
+    let myFunc = syncGlobalActorFunc
+    myFunc() /// expected-error{{global function 'syncGlobalActorFunc()' isolated to global actor 'SomeGlobalActor' can not be referenced from a non-isolated context}}
 
     // Global data is okay if it is immutable.
     _ = immutableGlobal
