@@ -1830,6 +1830,37 @@ namespace {
                            globalActor,
                            /*actorIndependent=*/true, useKind,
                            result == AsyncMarkingResult::SyncContext);
+
+        if (ClosureExpr *closure = dyn_cast<ClosureExpr>(declContext)) {
+          llvm::SmallVector<char, 8> scratch;
+          const StringRef valueName = value->getName().getString(scratch);
+          const SourceRange bracketRange = closure->getBracketRange();
+
+          const bool hasClosureList = bracketRange.isValid();
+          const bool captureContainsStuff = hasClosureList && bracketRange.Start.getAdvancedLoc(1) != bracketRange.End;
+          const bool hasInKwd = closure->getInLoc().isValid();
+
+          SourceLoc braceStart = closure->getBody()->getStartLoc();
+          auto diag = ctx.Diags.diagnose(braceStart,
+              diag::closure_add_capture, value->getName());
+
+          if (hasClosureList) {
+            SourceLoc startLoc = bracketRange.End;
+            if (captureContainsStuff) {
+              diag.fixItInsert(startLoc, (llvm::Twine(", ") + valueName).str());
+            } else {
+              diag.fixItInsert(startLoc, valueName);
+            }
+          } else {
+            SourceLoc startLoc = braceStart.getAdvancedLoc(1);
+            if (hasInKwd) {
+              diag.fixItInsert(startLoc, (llvm::Twine("[") + valueName + "]").str());
+            } else {
+              diag.fixItInsert(startLoc, (llvm::Twine("[") + valueName + "] in").str());
+            }
+          }
+        }
+
         noteIsolatedActorMember(value, context);
         return true;
       }
