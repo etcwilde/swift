@@ -1238,12 +1238,15 @@ namespace {
           const std::string humanValueNameList = createHumanNameList();
 
           {
-          auto diag = ctx.Diags.diagnose(fixies[0].referenceLoc,
-              diag::global_actor_from_nonactor_context_multiple,
-              llvm::StringRef(humanValueNameList + (fixies.size() == 1 ? " is" : " are")), globalActor, varUse);
-          for (const auto & fix: fixies) {
-            diag.highlight(fix.referenceLoc);
-          }
+            auto diag = ctx.Diags.diagnose(
+                fixies[0].referenceLoc,
+                diag::global_actor_from_nonactor_context_multiple,
+                llvm::StringRef(humanValueNameList +
+                                (fixies.size() == 1 ? " is" : " are")),
+                globalActor, varUse);
+            for (const auto &fix : fixies) {
+              diag.highlight(fix.referenceLoc);
+            }
           }
           suggestCaptureList(anchor);
         }
