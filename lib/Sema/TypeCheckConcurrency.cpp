@@ -1021,6 +1021,14 @@ namespace {
       Inout = 2 // means Mutating; having a separate kind helps diagnostics
     };
 
+    struct GlobalActorCaptureFixits {
+      GlobalActorCaptureFixits(ValueDecl *value, SourceLoc referenceLoc) : value(value), referenceLoc(referenceLoc) {}
+      ValueDecl* value;
+      SourceLoc referenceLoc;
+    };
+    llvm::DenseMap<std::tuple<ClosureExpr*, Type, unsigned>,
+                   llvm::SmallVector<GlobalActorCaptureFixits>> closureCaptureFixits;
+
     static bool isPropOrSubscript(ValueDecl const* decl) {
       return isa<VarDecl>(decl) || isa<SubscriptDecl>(decl);
     }
@@ -1150,6 +1158,96 @@ namespace {
   public:
     ActorIsolationChecker(const DeclContext *dc) : ctx(dc->getASTContext()) {
       contextStack.push_back(dc);
+    }
+
+    ~ActorIsolationChecker() {
+      for (const auto &closureCaptureInfo : closureCaptureFixits) {
+        auto key = closureCaptureInfo.first;
+        ClosureExpr *anchor = std::get<0>(key);
+        Type globalActor = std::get<1>(key);
+        unsigned varUse = std::get<2>(key);
+
+        const llvm::SmallVector<GlobalActorCaptureFixits> fixies = closureCaptureInfo.second;
+
+        auto createSourceList = [&fixies]() -> std::string {
+          if (fixies.empty())
+            return "";
+          llvm::SmallVector<char, 8> scratch;
+          auto it = fixies.begin();
+          std::string nameList = it->value->getName().getString(scratch).str();
+          ++it;
+          for (auto end = fixies.end(); it != end; ++it) {
+            scratch.clear();
+            nameList += (llvm::Twine(", ") + it->value->getName().getString(scratch)).str();
+          }
+          return nameList;
+        };
+
+        auto createHumanNameList = [&fixies]() -> std::string {
+          if (fixies.empty())
+            return "";
+
+          llvm::SmallVector<char, 8> scratch;
+          if (fixies.size() == 1)
+            return "'" + fixies[0].value->getName().getString(scratch).str() + "'";
+          if (fixies.size() == 2) {
+            std::string firstName = fixies[0].value->getName().getString(scratch).str();
+            scratch.clear();
+            llvm::StringRef secondName = fixies[1].value->getName().getString(scratch);
+            return ("'" + firstName + "' and '" + secondName + "'").str();
+          }
+
+          std::string nameList = "";
+          for (auto it = fixies.begin(), end = fixies.end() - 1; it != end; ++it) {
+            nameList += "'" + it->value->getName().getString(scratch).str() + "', ";
+            scratch.clear();
+          }
+          nameList += "and '" + (fixies.end() - 1)->value->getName().getString(scratch).str() + "'";
+          return nameList;
+        };
+
+        auto suggestCaptureList = [this, createSourceList](ClosureExpr *anchor) {
+          const SourceRange bracketRange = anchor->getBracketRange();
+          const bool hasCaptureList = bracketRange.isValid();
+          const bool captureContainsStuff = hasCaptureList && bracketRange.Start.getAdvancedLoc(1) != bracketRange.End;
+          const bool hasInKwd = anchor->getInLoc().isValid();
+
+          SourceLoc braceStart = anchor->getBody()->getStartLoc();
+
+          const std::string sourceValueNameList = createSourceList();
+
+          auto diag = ctx.Diags.diagnose(braceStart, diag::closure_add_protected_capture);
+          if (hasCaptureList) {
+            SourceLoc startLoc = bracketRange.End;
+            if (captureContainsStuff) {
+              diag.fixItInsert(startLoc, (llvm::Twine(", ") + sourceValueNameList).str());
+            } else {
+              diag.fixItInsert(startLoc, sourceValueNameList);
+            }
+          } else {
+            SourceLoc startLoc = braceStart.getAdvancedLoc(1);
+            if (hasInKwd) {
+              diag.fixItInsert(startLoc, (llvm::Twine("[") + sourceValueNameList + "]").str());
+            } else {
+              diag.fixItInsert(startLoc, (llvm::Twine("[") + sourceValueNameList + "] in").str());
+            }
+          }
+        };
+
+        if (!fixies.empty()) {
+          const std::string humanValueNameList = createHumanNameList();
+
+          {
+          auto diag = ctx.Diags.diagnose(fixies[0].referenceLoc,
+              diag::global_actor_from_nonactor_context_multiple,
+              llvm::StringRef(humanValueNameList + (fixies.size() == 1 ? " is" : " are")), globalActor, varUse);
+          for (const auto & fix: fixies) {
+            diag.highlight(fix.referenceLoc);
+          }
+          }
+          suggestCaptureList(anchor);
+        }
+      }
     }
 
     /// Searches the applyStack from back to front for the inner-most CallExpr
@@ -1825,43 +1923,17 @@ namespace {
         auto useKind = static_cast<unsigned>(
             kindOfUsage(value, context).getValueOr(VarRefUseEnv::Read));
 
-        ctx.Diags.diagnose(loc, diag::global_actor_from_nonactor_context,
-                           value->getDescriptiveKind(), value->getName(),
-                           globalActor,
-                           /*actorIndependent=*/true, useKind,
-                           result == AsyncMarkingResult::SyncContext);
-
         if (ClosureExpr *closure = dyn_cast<ClosureExpr>(declContext)) {
-          llvm::SmallVector<char, 8> scratch;
-          const StringRef valueName = value->getName().getString(scratch);
-          const SourceRange bracketRange = closure->getBracketRange();
-
-          const bool hasClosureList = bracketRange.isValid();
-          const bool captureContainsStuff = hasClosureList && bracketRange.Start.getAdvancedLoc(1) != bracketRange.End;
-          const bool hasInKwd = closure->getInLoc().isValid();
-
-          SourceLoc braceStart = closure->getBody()->getStartLoc();
-          auto diag = ctx.Diags.diagnose(braceStart,
-              diag::closure_add_capture, value->getName());
-
-          if (hasClosureList) {
-            SourceLoc startLoc = bracketRange.End;
-            if (captureContainsStuff) {
-              diag.fixItInsert(startLoc, (llvm::Twine(", ") + valueName).str());
-            } else {
-              diag.fixItInsert(startLoc, valueName);
-            }
-          } else {
-            SourceLoc startLoc = braceStart.getAdvancedLoc(1);
-            if (hasInKwd) {
-              diag.fixItInsert(startLoc, (llvm::Twine("[") + valueName + "]").str());
-            } else {
-              diag.fixItInsert(startLoc, (llvm::Twine("[") + valueName + "] in").str());
-            }
-          }
+          closureCaptureFixits[std::make_tuple(closure, globalActor, useKind)].emplace_back(value, loc);
+        } else {
+          ctx.Diags.diagnose(loc, diag::global_actor_from_nonactor_context,
+                             value->getDescriptiveKind(), value->getName(),
+                             globalActor,
+                             /*actorIndependent=*/true, useKind,
+                             result == AsyncMarkingResult::SyncContext);
+          noteIsolatedActorMember(value, context);
         }
 
-        noteIsolatedActorMember(value, context);
         return true;
       }
 
