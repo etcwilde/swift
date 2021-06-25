@@ -1741,11 +1741,11 @@ llvm::Triple IRGenerator::getEffectiveClangTriple() {
   return llvm::Triple(CI->getTargetInfo().getTargetOpts().Triple);
 }
 
-const llvm::DataLayout &IRGenerator::getClangDataLayout() {
-  return static_cast<ClangImporter *>(
-             SIL.getASTContext().getClangModuleLoader())
-      ->getTargetInfo()
-      .getDataLayout();
+const llvm::DataLayout IRGenerator::getClangDataLayout() {
+  return llvm::DataLayout(
+      static_cast<ClangImporter *>(SIL.getASTContext().getClangModuleLoader())
+          ->getTargetInfo()
+          .getDataLayoutString());
   }
 
 TypeExpansionContext IRGenModule::getMaximalTypeExpansionContext() const {
