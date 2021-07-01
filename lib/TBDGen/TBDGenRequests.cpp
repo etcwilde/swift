@@ -48,7 +48,7 @@ ModuleDecl *TBDGenDescriptor::getParentModule() const {
   return Input.get<FileUnit *>()->getParentModule();
 }
 
-const llvm::DataLayout TBDGenDescriptor::getDataLayout() const {
+llvm::DataLayout TBDGenDescriptor::getDataLayout() const {
   auto &ctx = getParentModule()->getASTContext();
   auto *clang = static_cast<ClangImporter *>(ctx.getClangModuleLoader());
   return llvm::DataLayout(clang->getTargetInfo().getDataLayoutString());

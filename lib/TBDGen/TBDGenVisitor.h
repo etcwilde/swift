@@ -31,6 +31,8 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/TextAPI/InterfaceFile.h"
 
+#include <utility>
+
 using namespace swift::irgen;
 using StringSet = llvm::StringSet<>;
 
@@ -92,7 +94,7 @@ class TBDGenVisitor : public ASTVisitor<TBDGenVisitor> {
   llvm::StringSet<> DuplicateSymbolChecker;
 #endif
 
-  const llvm::DataLayout &DataLayout;
+  const llvm::DataLayout DataLayout;
   UniversalLinkageInfo UniversalLinkInfo;
   ModuleDecl *SwiftModule;
   const TBDGenOptions &Opts;
@@ -167,10 +169,10 @@ class TBDGenVisitor : public ASTVisitor<TBDGenVisitor> {
                                   const AutoDiffConfig &config);
 
 public:
-  TBDGenVisitor(const llvm::Triple &target, const llvm::DataLayout &dataLayout,
+  TBDGenVisitor(const llvm::Triple &target, const llvm::DataLayout &&dataLayout,
                 ModuleDecl *swiftModule, const TBDGenOptions &opts,
                 APIRecorder &recorder)
-      : DataLayout(dataLayout),
+      : DataLayout(std::forward<llvm::DataLayout>(dataLayout)),
         UniversalLinkInfo(target, opts.HasMultipleIGMs, /*forcePublic*/ false),
         SwiftModule(swiftModule), Opts(opts), recorder(recorder),
         previousInstallNameMap(parsePreviousModuleInstallNameMap()) {}
