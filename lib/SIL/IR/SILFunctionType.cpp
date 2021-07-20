@@ -2495,6 +2495,9 @@ static CanSILFunctionType getNativeSILFunctionType(
     case SILDeclRef::Kind::Deallocator:
       return getSILFunctionTypeForConventions(DeallocatorConventions());
 
+    case SILDeclRef::Kind::AsyncEntryPoint:
+      return getSILFunctionTypeForConventions(
+          DefaultConventions(NormalParameterConvention::Guaranteed));
     case SILDeclRef::Kind::EntryPoint:
       llvm_unreachable("Handled by getSILFunctionTypeForAbstractCFunction");
     }
@@ -3040,6 +3043,7 @@ static ObjCSelectorFamily getObjCSelectorFamily(SILDeclRef c) {
   case SILDeclRef::Kind::PropertyWrapperBackingInitializer:
   case SILDeclRef::Kind::PropertyWrapperInitFromProjectedValue:
   case SILDeclRef::Kind::EntryPoint:
+  case SILDeclRef::Kind::AsyncEntryPoint:
     llvm_unreachable("Unexpected Kind of foreign SILDeclRef");
   }
 
@@ -3312,6 +3316,8 @@ TypeConverter::getDeclRefRepresentation(SILDeclRef c) {
     case SILDeclRef::Kind::IVarDestroyer:
       return SILFunctionTypeRepresentation::Method;
 
+    case SILDeclRef::Kind::AsyncEntryPoint:
+      return SILFunctionTypeRepresentation::Thin;
     case SILDeclRef::Kind::EntryPoint:
       return SILFunctionTypeRepresentation::CFunctionPointer;
   }
@@ -4142,6 +4148,7 @@ static AbstractFunctionDecl *getBridgedFunction(SILDeclRef declRef) {
   case SILDeclRef::Kind::IVarInitializer:
   case SILDeclRef::Kind::IVarDestroyer:
   case SILDeclRef::Kind::EntryPoint:
+  case SILDeclRef::Kind::AsyncEntryPoint:
     return nullptr;
   }
   llvm_unreachable("bad SILDeclRef kind");

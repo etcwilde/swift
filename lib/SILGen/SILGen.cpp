@@ -437,6 +437,25 @@ SILGenModule::getCheckExpectedExecutor() {
                                     "_checkExpectedExecutor");
 }
 
+FuncDecl *SILGenModule::getAsyncMainDrainQueue() {
+  return lookupConcurrencyIntrinsic(getASTContext(), AsyncMainDrainQueue,
+                                    "_asyncMainDrainQueue");
+}
+
+FuncDecl *SILGenModule::getTaskCreateFlags() {
+  return lookupConcurrencyIntrinsic(getASTContext(), TaskCreateFlags,
+                                    "taskCreateFlags");
+}
+
+FuncDecl *SILGenModule::getGetMainExecutor() {
+  return lookupConcurrencyIntrinsic(getASTContext(), GetMainExecutor,
+                                    "_getMainExecutor");
+}
+
+FuncDecl *SILGenModule::getSwiftJobRun() {
+  return lookupConcurrencyIntrinsic(getASTContext(), SwiftJobRun, "_swiftJobRun");
+}
+
 ProtocolConformance *SILGenModule::getNSErrorConformanceToError() {
   if (NSErrorConformanceToError)
     return *NSErrorConformanceToError;
@@ -1036,6 +1055,7 @@ void SILGenModule::emitFunctionDefinition(SILDeclRef constant, SILFunction *f) {
     postEmitFunction(constant, f);
     return;
   }
+  case SILDeclRef::Kind::AsyncEntryPoint:
   case SILDeclRef::Kind::EntryPoint: {
     f->setBare(IsBare);
 
@@ -1046,7 +1066,13 @@ void SILGenModule::emitFunctionDefinition(SILDeclRef constant, SILFunction *f) {
     auto *decl = constant.getDecl();
     auto *dc = decl->getDeclContext();
     PrettyStackTraceSILFunction X("silgen emitArtificialTopLevel", f);
-    SILGenFunction(*this, *f, dc).emitArtificialTopLevel(decl);
+    if (constant.kind == SILDeclRef::Kind::EntryPoint && isa<FuncDecl>(decl) &&
+        static_cast<FuncDecl *>(decl)->hasAsync()) {
+      SILDeclRef mainEntryPoint = SILDeclRef::getAsyncMainDeclEntryPoint(decl);
+      SILGenFunction(*this, *f, dc).emitAsyncMainThreadStart(mainEntryPoint);
+    } else {
+      SILGenFunction(*this, *f, dc).emitArtificialTopLevel(decl);
+    }
     postEmitFunction(constant, f);
     return;
   }
@@ -2029,10 +2055,15 @@ public:
 
     // If the source file contains an artificial main, emit the implicit
     // top-level code.
-    if (auto *mainDecl = sf->getMainDecl())
+    if (auto *mainDecl = sf->getMainDecl()) {
+      if (isa<FuncDecl>(mainDecl) &&
+          static_cast<FuncDecl *>(mainDecl)->hasAsync())
+        emitSILFunctionDefinition(
+            SILDeclRef::getAsyncMainDeclEntryPoint(mainDecl));
       emitSILFunctionDefinition(SILDeclRef::getMainDeclEntryPoint(mainDecl));
+    }
   }
-  
+
   void emitSILFunctionDefinition(SILDeclRef ref) {
     SGM.emitFunctionDefinition(ref, SGM.getFunction(ref, ForDefinition));
   }

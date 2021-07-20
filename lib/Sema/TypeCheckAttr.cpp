@@ -274,7 +274,7 @@ void AttributeChecker::visitTransparentAttr(TransparentAttr *attr) {
     diagnoseAndRemoveAttr(attr, diag::transparent_in_protocols_not_supported);
   // Class declarations cannot be transparent.
   if (isa<ClassDecl>(dc)) {
-    
+
     // @transparent is always ok on implicitly generated accessors: they can
     // be dispatched (even in classes) when the references are within the
     // class themself.
@@ -1119,7 +1119,7 @@ void AttributeChecker::visitObjCAttr(ObjCAttr *attr) {
                    numParameters != 1,
                    func->hasThrows())
               .limitBehavior(behavior));
-        
+
         correctNameUsingNewAttr(
             ObjCAttr::createUnnamed(Ctx, attr->AtLoc, attr->Range.Start));
       }
@@ -1583,12 +1583,12 @@ void AttributeChecker::visitUnsafeNoObjCTaggedPointerAttr(
              diag::no_objc_tagged_pointer_not_class_protocol);
     attr->setInvalid();
   }
-  
+
   if (!proto->requiresClass()
       && !proto->getAttrs().hasAttribute<ObjCAttr>()) {
     diagnose(attr->getLocation(),
              diag::no_objc_tagged_pointer_not_class_protocol);
-    attr->setInvalid();    
+    attr->setInvalid();
   }
 }
 
@@ -1889,41 +1889,29 @@ synthesizeMainBody(AbstractFunctionDecl *fn, void *arg) {
   Expr *returnedExpr;
 
   if (mainFunction->hasAsync()) {
-    // Pass main into _runAsyncMain(_ asyncFunc: () async throws -> ())
-    // Resulting $main looks like:
-    // $main() { _runAsyncMain(main) }
+    // Ensure that the concurrency module is loaded
     auto *concurrencyModule = context.getLoadedModule(context.Id_Concurrency);
     if (!concurrencyModule) {
       context.Diags.diagnose(mainFunction->getAsyncLoc(),
                              diag::async_main_no_concurrency);
       auto result = new (context) ErrorExpr(mainFunction->getSourceRange());
-      SmallVector<ASTNode, 1> stmts;
-      stmts.push_back(result);
-      auto body = BraceStmt::create(context, SourceLoc(), stmts,
-                                    SourceLoc(), /*Implicit*/true);
-
+      ASTNode stmts[] = {result};
+      auto body = BraceStmt::create(context, SourceLoc(), stmts, SourceLoc(),
+          /*Implicit*/true);
       return std::make_pair(body, /*typechecked*/true);
     }
 
-    SmallVector<ValueDecl *, 1> decls;
-    concurrencyModule->lookupQualified(
-        concurrencyModule,
-        DeclNameRef(context.getIdentifier("_runAsyncMain")),
-        NL_QualifiedDefault | NL_IncludeUsableFromInline,
-        decls);
-    assert(!decls.empty() && "Failed to find _runAsyncMain");
-    FuncDecl *runner = cast<FuncDecl>(decls[0]);
-
-    auto asyncRunnerDeclRef = ConcreteDeclRef(runner, substitutionMap);
-
-    DeclRefExpr *funcExpr = new (context) DeclRefExpr(asyncRunnerDeclRef,
-                                                      DeclNameLoc(),
-                                                      /*implicit=*/true);
-    funcExpr->setType(runner->getInterfaceType());
-    auto *argList =
-        ArgumentList::forImplicitUnlabeled(context, {memberRefExpr});
-    auto *callExpr = CallExpr::createImplicit(context, funcExpr, argList);
-    returnedExpr = callExpr;
+    // $main() async { await main() }
+    Expr *awaitExpr =
+        new (context) AwaitExpr(callExpr->getLoc(), callExpr,
+                                context.TheEmptyTupleType, /*implicit*/ true);
+    if (mainFunction->hasThrows()) {
+      // $main() async throws { try await main() }
+      awaitExpr =
+          new (context) TryExpr(callExpr->getLoc(), awaitExpr,
+                                context.TheEmptyTupleType, /*implicit*/ true);
+    }
+    returnedExpr = awaitExpr;
   } else if (mainFunction->hasThrows()) {
     auto *tryExpr = new (context) TryExpr(
         callExpr->getLoc(), callExpr, context.TheEmptyTupleType, /*implicit=*/true);
@@ -2040,7 +2028,7 @@ SynthesizeMainFunctionRequest::evaluate(Evaluator &evaluator,
       DeclName(context, DeclBaseName(context.Id_MainEntryPoint),
                ParameterList::createEmpty(context)),
       /*NameLoc=*/SourceLoc(),
-      /*Async=*/false,
+      /*Async=*/mainFunction->hasAsync(),
       /*Throws=*/mainFunction->hasThrows(),
       /*GenericParams=*/nullptr, ParameterList::createEmpty(context),
       /*FnRetType=*/TupleType::getEmpty(context), declContext);
@@ -2502,7 +2490,7 @@ static FuncDecl *findSimilarAccessor(DeclNameRef replacedVarName,
   }
 
   assert(!isa<FuncDecl>(results[0]));
-  
+
   auto *origStorage = cast<AbstractStorageDecl>(results[0]);
   if (forDynamicReplacement && !origStorage->isDynamic()) {
     Diags.diagnose(attr->getLocation(),
