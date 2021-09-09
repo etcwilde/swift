@@ -442,11 +442,6 @@ FuncDecl *SILGenModule::getAsyncMainDrainQueue() {
                                     "_asyncMainDrainQueue");
 }
 
-FuncDecl *SILGenModule::getTaskCreateFlags() {
-  return lookupConcurrencyIntrinsic(getASTContext(), TaskCreateFlags,
-                                    "taskCreateFlags");
-}
-
 FuncDecl *SILGenModule::getGetMainExecutor() {
   return lookupConcurrencyIntrinsic(getASTContext(), GetMainExecutor,
                                     "_getMainExecutor");
