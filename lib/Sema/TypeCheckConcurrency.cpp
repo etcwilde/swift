@@ -4225,3 +4225,21 @@ AnyFunctionType *swift::adjustFunctionTypeForConcurrency(
 bool swift::completionContextUsesConcurrencyFeatures(const DeclContext *dc) {
   return contextUsesConcurrencyFeatures(dc);
 }
+
+void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
+  if (!decl.hasAsync())
+    return;
+  assert(decl.hasBody() && "Function decl doesn't have a body!");
+
+  class UsageWalker : public ASTWalker {
+    const AbstractFunctionDecl &baseDecl;
+
+  public:
+    UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd) {}
+
+    bool walkToDeclPre(Decl *decl) override { return false; }
+  };
+
+  UsageWalker checker(decl);
+  decl.getBody()->walk(checker);
+}
