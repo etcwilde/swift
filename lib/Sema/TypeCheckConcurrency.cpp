@@ -4233,6 +4233,11 @@ bool swift::completionContextUsesConcurrencyFeatures(const DeclContext *dc) {
 void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
   if (!decl.hasAsync())
     return;
+
+  if (decl.getAttrs().hasAttribute<UnavailableFromAsyncAttr>())
+    decl.getASTContext().Diags.diagnose(decl.getLoc(), diag::pound_error,
+        "Asynchronous functions must be available from an asynchronous context");
+
   assert(decl.hasBody() && "Function decl doesn't have a body!");
 
   class UsageWalker : public ASTWalker {

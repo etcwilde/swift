@@ -6,6 +6,7 @@
 struct Bip {
 }
 
-func asyncFunc() async {
+@unavailableFromAsync
+func asyncFunc() async { // expected-error{{Asynchronous functions must be available from an asynchronous context}}
   let _ = Bip() //expected-error{{Can't use this type from an async context}}
 }
