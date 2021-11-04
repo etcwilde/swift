@@ -2,11 +2,33 @@
 
 // REQUIRES: concurrency
 
+func okay() {}
+
 @unavailableFromAsync
 struct Bip {
 }
 
+struct Bop {
+  @unavailableFromAsync
+  init() {}
+
+  init(a: Int) {}
+}
+
+extension Bop {
+  @unavailableFromAsync
+  func foo() {}
+}
+
+@unavailableFromAsync
+func foo() {}
+
 @unavailableFromAsync
 func asyncFunc() async { // expected-error{{Asynchronous functions must be available from an asynchronous context}}
-  let _ = Bip() //expected-error{{Can't use this type from an async context}}
+  okay()
+  let _ = Bip() //expected-error@:11{{Can't use this type from an async context}}
+  let _ = Bop() // expected-error@:11{{Can't use this decl from an async context}}
+  let bop = Bop(a: 32)
+  bop.foo() // expected-error@:7{{Can't use this decl from an async context}}
+  foo() // expected-error{{Can't use this decl from an async context}}
 }

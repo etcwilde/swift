@@ -4250,6 +4250,12 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
       return decl->getAttrs().hasAttribute<UnavailableFromAsyncAttr>();
     }
 
+    static bool isDeclRefExprUnavailable(const DeclRefExpr *expr) {
+      if (!expr)
+        return false;
+      return isDeclUnavailable(expr->getDecl());
+    }
+
   public:
     UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd), ctx(afd.getASTContext()) {}
 
@@ -4261,6 +4267,9 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
         if (isDeclUnavailable(decl))
           ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
         // Keep going, the init itself may be unavailable
+      } else if (isDeclRefExprUnavailable(dyn_cast<DeclRefExpr>(expr))) {
+        ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
+            "Can't use this decl from an async context");
       }
       return { true, expr};
     }
