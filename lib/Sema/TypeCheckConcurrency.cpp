@@ -4249,7 +4249,15 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
     UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd), ctx(afd.getASTContext()) {}
 
     std::pair<bool, Expr*> walkToExprPre(Expr *expr) override {
-      return {true, expr};
+      if (ConstructorRefCallExpr *constructor = dyn_cast<ConstructorRefCallExpr>(expr)) {
+        // Check that the underlying type is accessible from an async context
+        CanType constructedType = constructor->getType()->getAs<AnyFunctionType>()->getResult()->getCanonicalType();
+        NominalTypeDecl *decl = constructedType->getAnyNominal();
+        if (isDeclUnavailable(decl))
+          ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
+        // Keep going, the init itself may be unavailable
+      }
+      return { true, expr};
     }
   };
 
