@@ -679,6 +679,12 @@ SIMPLE_DECL_ATTR(_noImplicitCopy, NoImplicitCopy,
   OnVar,
   122)
 
+SIMPLE_DECL_ATTR(unavailableFromAsync, UnavailableFromAsync,
+  OnAbstractFunction | OnGenericType |
+  ABIStableToAdd | ABIStableToRemove |
+  APIBreakingToAdd | APIStableToRemove,
+  123)
+
 // If you're adding a new underscored attribute here, please document it in
 // docs/ReferenceGuides/UnderscoredAttributes.md.
 

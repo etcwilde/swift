@@ -4226,6 +4226,10 @@ bool swift::completionContextUsesConcurrencyFeatures(const DeclContext *dc) {
   return contextUsesConcurrencyFeatures(dc);
 }
 
+/// This is a best-effort to ensure that you aren't directly calling API that is
+/// annotated with an @unavailableFromAsync attribute.
+/// This is fairly easy to get around. Simply wrapping a call in a closure
+/// will allow calling the API from the synchronous context
 void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
   if (!decl.hasAsync())
     return;
@@ -4233,11 +4237,20 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
 
   class UsageWalker : public ASTWalker {
     const AbstractFunctionDecl &baseDecl;
+    ASTContext &ctx;
+
+    static bool isDeclUnavailable(const ValueDecl *decl) {
+      if (!decl)
+        return false;
+      return decl->getAttrs().hasAttribute<UnavailableFromAsyncAttr>();
+    }
 
   public:
-    UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd) {}
+    UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd), ctx(afd.getASTContext()) {}
 
-    bool walkToDeclPre(Decl *decl) override { return false; }
+    std::pair<bool, Expr*> walkToExprPre(Expr *expr) override {
+      return {true, expr};
+    }
   };
 
   UsageWalker checker(decl);
