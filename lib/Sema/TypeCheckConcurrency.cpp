@@ -4231,10 +4231,7 @@ bool swift::completionContextUsesConcurrencyFeatures(const DeclContext *dc) {
 /// This is fairly easy to get around. Simply wrapping a call in a closure
 /// will allow calling the API from the synchronous context
 void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
-  if (!decl.hasAsync())
-    return;
-
-  if (decl.getAttrs().hasAttribute<UnavailableFromAsyncAttr>())
+  if (decl.hasAsync() && decl.getAttrs().hasAttribute<UnavailableFromAsyncAttr>())
     decl.getASTContext().Diags.diagnose(decl.getLoc(), diag::pound_error,
         "Asynchronous functions must be available from an asynchronous context");
 
@@ -4243,6 +4240,7 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
   class UsageWalker : public ASTWalker {
     const AbstractFunctionDecl &baseDecl;
     ASTContext &ctx;
+    SmallVector<ClosureExpr *, 4> closureStack = {};
 
     static bool isDeclUnavailable(const ValueDecl *decl) {
       if (!decl)
@@ -4250,28 +4248,57 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
       return decl->getAttrs().hasAttribute<UnavailableFromAsyncAttr>();
     }
 
+    // Return true if the Decl referred to by the DeclRefExpr is unavailable.
+    // Return false the expr is nullptr or is available
     static bool isDeclRefExprUnavailable(const DeclRefExpr *expr) {
       if (!expr)
         return false;
       return isDeclUnavailable(expr->getDecl());
     }
 
+    /// Return true if the closure is an async closure
+    static bool isClosureExprAsync(const ClosureExpr *closure) {
+      return closure->getAsyncLoc() != SourceLoc();
+    }
+
+    /// Return true if we're looking at exprs in an async context
+    bool inAsyncContext() const {
+      // If we're not in a closure, we're inside the base decl
+      if (closureStack.empty())
+        return baseDecl.hasAsync();
+      return isClosureExprAsync(closureStack.back());
+    }
+
   public:
     UsageWalker(AbstractFunctionDecl &afd) : baseDecl(afd), ctx(afd.getASTContext()) {}
 
     std::pair<bool, Expr*> walkToExprPre(Expr *expr) override {
-      if (ConstructorRefCallExpr *constructor = dyn_cast<ConstructorRefCallExpr>(expr)) {
-        // Check that the underlying type is accessible from an async context
-        CanType constructedType = constructor->getType()->getAs<AnyFunctionType>()->getResult()->getCanonicalType();
-        NominalTypeDecl *decl = constructedType->getAnyNominal();
-        if (isDeclUnavailable(decl))
-          ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
-        // Keep going, the init itself may be unavailable
-      } else if (isDeclRefExprUnavailable(dyn_cast<DeclRefExpr>(expr))) {
-        ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
-            "Can't use this decl from an async context");
+      if (ClosureExpr *closure = dyn_cast<ClosureExpr>(expr))
+        closureStack.push_back(closure);
+      if (inAsyncContext()) {
+        // If we're in an async context, emit diagnostics, otherwise don't say
+        // anything.
+        if (ConstructorRefCallExpr *constructor = dyn_cast<ConstructorRefCallExpr>(expr)) {
+          // Check that the underlying type is accessible from an async context
+          CanType constructedType = constructor->getType()->getAs<AnyFunctionType>()->getResult()->getCanonicalType();
+          NominalTypeDecl *decl = constructedType->getAnyNominal();
+          if (isDeclUnavailable(decl))
+            ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
+          // Keep going, the init itself may be unavailable
+        } else if (isDeclRefExprUnavailable(dyn_cast<DeclRefExpr>(expr))) {
+          ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
+              "Can't use this decl from an async context");
+        }
       }
       return { true, expr};
+    }
+
+    Expr * walkToExprPost(Expr *expr) override {
+      if (isa<ClosureExpr>(expr)) {
+        assert(expr == closureStack.back() && "Popping the wrong closure");
+        closureStack.pop_back();
+      }
+      return expr;
     }
   };
 
