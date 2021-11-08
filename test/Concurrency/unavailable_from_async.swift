@@ -6,6 +6,7 @@ func okay() {}
 
 @unavailableFromAsync
 struct Bip {
+  func baz() {}
 }
 
 struct Bop {
@@ -25,6 +26,9 @@ func foo() {}
 
 func makeAsyncClosuresSynchronously() -> (() async -> ()) {
   return { () async -> () in
+    let bip = { Bip() }()
+    bip.baz()     // expected-error@:9{{Can't use this decl from an async context}}
+    _ = { bip.baz() }()
     let _ = Bip() // expected-error@:13{{Can't use this type from an async context}}
     let _ = Bop() // expected-error@:13{{Can't use this decl from an async context}}
 

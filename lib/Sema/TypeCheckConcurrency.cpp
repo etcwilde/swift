@@ -4284,7 +4284,15 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
           NominalTypeDecl *decl = constructedType->getAnyNominal();
           if (isDeclUnavailable(decl))
             ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
-          // Keep going, the init itself may be unavailable
+        } else if (SelfApplyExpr *selfApply = dyn_cast<SelfApplyExpr>(expr)) {
+          // If we are directly applying a variable of an unavailable type, get
+          // mad.
+          CanType applicationType = cast<VarDecl>(cast<DeclRefExpr>(selfApply->getBase())->getDecl())->getType()->getCanonicalType();
+          NominalTypeDecl *decl = applicationType->getAnyNominal();
+          if (isDeclUnavailable(decl)) {
+            ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
+                "Can't use this decl from an async context");
+          }
         } else if (isDeclRefExprUnavailable(dyn_cast<DeclRefExpr>(expr))) {
           ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
               "Can't use this decl from an async context");
