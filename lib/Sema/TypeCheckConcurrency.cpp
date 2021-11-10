@@ -4232,8 +4232,9 @@ bool swift::completionContextUsesConcurrencyFeatures(const DeclContext *dc) {
 /// will allow calling the API from the synchronous context
 void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
   if (decl.hasAsync() && decl.getAttrs().hasAttribute<UnavailableFromAsyncAttr>())
-    decl.getASTContext().Diags.diagnose(decl.getLoc(), diag::pound_error,
-        "Asynchronous functions must be available from an asynchronous context");
+    decl.getASTContext().Diags.diagnose(decl.getLoc(),
+        diag::warn_async_function_must_be_available_from_async,
+        decl.getName());
 
   assert(decl.hasBody() && "Function decl doesn't have a body!");
 
@@ -4280,8 +4281,10 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
         // anything.
         if (DeclRefExpr *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
           if (isDeclRefExprUnavailable(declRefExpr)) {
-            ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
-                "Can't use this decl from an async context");
+            ValueDecl *decl = declRefExpr->getDecl();
+            ctx.Diags.diagnose(expr->getLoc(), diag::warn_async_unavailable_decl,
+                decl->getBaseName());
+            decl->diagnose(diag::decl_declared_here, decl->getName());
           }
         }
       }

@@ -26,38 +26,38 @@ actor Baz { }
 
 struct Bop {
   @unavailableFromAsync
-  init() {}
+  init() {}                 // expected-note 4 {{'init()' declared here}}
 
   init(a: Int) { }
 }
 
 extension Bop {
   @unavailableFromAsync
-  func foo() {}
+  func foo() {}             // expected-note 4 {{'foo()' declared here}}
 
 
   @unavailableFromAsync
-  mutating func muppet() { }
-
+  mutating func muppet() { }  // expected-note 4 {{'muppet()' declared here}}
 }
 
 @unavailableFromAsync
-func foo() {}
+func foo() {}               // expected-note 4 {{'foo()' declared here}}
 
 func makeAsyncClosuresSynchronously(bop: inout Bop) -> (() async -> Void) {
   return { () async -> Void in
     // Unavailable methods
-    _ = Bop()     // expected-error@:9{{Can't use this decl from an async context}}
+    _ = Bop()     // expected-warning@:9{{'init' is unavailable from asynchronous contexts}}
     _ = Bop(a: 32)
-    bop.foo()     // expected-error@:9{{Can't use this decl from an async context}}
-    bop.muppet()    // expected-error@:9{{Can't use this decl from an async context}}
+    bop.foo()     // expected-warning@:9{{'foo' is unavailable from asynchronous contexts}}
+    bop.muppet()  // expected-warning@:9{{'muppet' is unavailable from asynchronous contexts}}
+
     // Can use them from synchronous closures
     _ = { Bop() }()
     _ = { bop.foo() }()
     _ = { bop.muppet() }()
 
     // Unavailable global function
-    foo()         // expected-error{{Can't use this decl from an async context}}
+    foo()         // expected-warning{{'foo' is unavailable from asynchronous contexts}}
 
     // Okay function
     okay()
@@ -65,15 +65,15 @@ func makeAsyncClosuresSynchronously(bop: inout Bop) -> (() async -> Void) {
 }
 
 @unavailableFromAsync
-func asyncFunc() async { // expected-error{{Asynchronous functions must be available from an asynchronous context}}
+func asyncFunc() async { // expected-error{{asynchronous function 'asyncFunc()' must be available from asynchronous contexts}}
 
   var bop = Bop(a: 32)
-  _ = Bop()     // expected-error@:7{{Can't use this decl from an async context}}
-  bop.foo()     // expected-error@:7{{Can't use this decl from an async context}}
-  bop.muppet()    // expected-error@:7{{Can't use this decl from an async context}}
+  _ = Bop()     // expected-warning@:7{{'init' is unavailable from asynchronous contexts}}
+  bop.foo()     // expected-warning@:7{{'foo' is unavailable from asynchronous contexts}}
+  bop.muppet()  // expected-warning@:7{{'muppet' is unavailable from asynchronous contexts}}
 
   // Unavailable global function
-  foo()         // expected-error{{Can't use this decl from an async context}}
+  foo()         // expected-warning{{'foo' is unavailable from asynchronous contexts}}
 
   // Available function
   okay()
@@ -87,18 +87,19 @@ func asyncFunc() async { // expected-error{{Asynchronous functions must be avail
 
     _ = { () async -> Void in
       // Check Unavailable things inside of a nested async closure
-      foo()           // expected-error@:7{{Can't use this decl from an async context}}
-      bop.foo()       // expected-error@:11{{Can't use this decl from an async context}}
-      bop.muppet()    // expected-error@:11{{Can't use this decl from an async context}}
-      _ = Bop()       // expected-error@:11{{Can't use this decl from an async context}}
+      foo()           // expected-warning@:7{{'foo' is unavailable from asynchronous contexts}}
+      bop.foo()       // expected-warning@:11{{'foo' is unavailable from asynchronous contexts}}
+      bop.muppet()    // expected-warning@:11{{'muppet' is unavailable from asynchronous contexts}}
+      _ = Bop()       // expected-warning@:11{{'init' is unavailable from asynchronous contexts}}
     }
   }
 
   _ = { () async -> Void in
-    _ = Bop()     // expected-error@:9{{Can't use this decl from an async context}}
-    foo()         // expected-error@:5{{Can't use this decl from an async context}}
-    bop.foo()     // expected-error@:9{{Can't use this decl from an async context}}
-    bop.muppet()  // expected-error@:9{{Can't use this decl from an async context}}
+    _ = Bop()     // expected-warning@:9{{'init' is unavailable from asynchronous contexts}}
+    foo()         // expected-warning@:5{{'foo' is unavailable from asynchronous contexts}}
+    bop.foo()     // expected-warning@:9{{'foo' is unavailable from asynchronous contexts}}
+    bop.muppet()  // expected-warning@:9{{'muppet' is unavailable from asynchronous contexts}}
+
 
     _ = {
       foo()
