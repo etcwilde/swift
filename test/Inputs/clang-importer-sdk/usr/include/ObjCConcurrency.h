@@ -45,6 +45,8 @@ typedef void (^CompletionHandler)(NSString * _Nullable, NSString * _Nullable_res
 
 -(void)customizedWithString:(NSString *)operation completionHandler:(void (^)(NSInteger))handler __attribute__((swift_name("customize(with:completionHandler:)"))) __attribute__((swift_async_name("customize(_:)")));
 
+-(void)unavailableMethod __attribute__((__swift_attr__("@unavailableFromAsync")));
+
 -(void)dance:(NSString *)step andThen:(void (^)(NSString *))doSomething __attribute__((swift_async(not_swift_private,2)));
 -(void)leap:(NSInteger)height andThen:(void (^)(NSString *))doSomething __attribute__((swift_async(swift_private,2)));
 
