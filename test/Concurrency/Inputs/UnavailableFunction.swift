@@ -1,0 +1,2 @@
+@unavailableFromAsync
+public func unavailableFunction() { }
