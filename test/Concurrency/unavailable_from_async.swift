@@ -4,76 +4,106 @@
 
 func okay() {}
 
+// expected-error@+1{{'@unavailableFromAsync' attribute cannot be applied to this declaration}}
 @unavailableFromAsync
-struct Bip {
-  func baz() {}
+struct Foo { }
+
+// expected-error@+1{{'@unavailableFromAsync' attribute cannot be applied to this declaration}}
+@unavailableFromAsync
+extension Foo { }
+
+// expected-error@+1{{'@unavailableFromAsync' attribute cannot be applied to this declaration}}
+@unavailableFromAsync
+class Bar {
+  // expected-error@+1{{'@unavailableFromAsync' attribute cannot be applied to this declaration}}
+  @unavailableFromAsync
+  deinit { }
 }
+
+// expected-error@+1{{'@unavailableFromAsync' attribute cannot be applied to this declaration}}
+@unavailableFromAsync
+actor Baz { }
 
 struct Bop {
   @unavailableFromAsync
   init() {}
 
-  init(a: Int) {}
+  init(a: Int) { }
 }
 
 extension Bop {
   @unavailableFromAsync
   func foo() {}
+
+
+  @unavailableFromAsync
+  mutating func muppet() { }
+
 }
 
 @unavailableFromAsync
 func foo() {}
 
-func makeAsyncClosuresSynchronously() -> (() async -> ()) {
-  return { () async -> () in
-    let bip = { Bip() }()
-    bip.baz()     // expected-error@:9{{Can't use this decl from an async context}}
-    _ = { bip.baz() }()
-    let _ = Bip() // expected-error@:13{{Can't use this type from an async context}}
-    let _ = Bop() // expected-error@:13{{Can't use this decl from an async context}}
+func makeAsyncClosuresSynchronously(bop: inout Bop) -> (() async -> Void) {
+  return { () async -> Void in
+    // Unavailable methods
+    _ = Bop()     // expected-error@:9{{Can't use this decl from an async context}}
+    _ = Bop(a: 32)
+    bop.foo()     // expected-error@:9{{Can't use this decl from an async context}}
+    bop.muppet()    // expected-error@:9{{Can't use this decl from an async context}}
+    // Can use them from synchronous closures
+    _ = { Bop() }()
+    _ = { bop.foo() }()
+    _ = { bop.muppet() }()
 
-    let _ = Bip() //expected-error@:13{{Can't use this type from an async context}}
-    let _ = Bop() // expected-error@:13{{Can't use this decl from an async context}}
-    let bop = Bop(a: 32)
-    bop.foo() // expected-error@:9{{Can't use this decl from an async context}}
-    foo() // expected-error{{Can't use this decl from an async context}}
+    // Unavailable global function
+    foo()         // expected-error{{Can't use this decl from an async context}}
+
+    // Okay function
+    okay()
   }
 }
 
 @unavailableFromAsync
-func asyncFunc(bip: Bip) async { // expected-error{{Asynchronous functions must be available from an asynchronous context}}
-  okay()
-  let _ = Bip() //expected-error@:11{{Can't use this type from an async context}}
-  let _ = Bop() // expected-error@:11{{Can't use this decl from an async context}}
-  let bop = Bop(a: 32)
-  bop.foo() // expected-error@:7{{Can't use this decl from an async context}}
-  foo() // expected-error{{Can't use this decl from an async context}}
+func asyncFunc() async { // expected-error{{Asynchronous functions must be available from an asynchronous context}}
 
-  let _ = { () -> () in
-    let _ = Bip()
-    let _ = Bop()
+  var bop = Bop(a: 32)
+  _ = Bop()     // expected-error@:7{{Can't use this decl from an async context}}
+  bop.foo()     // expected-error@:7{{Can't use this decl from an async context}}
+  bop.muppet()    // expected-error@:7{{Can't use this decl from an async context}}
+
+  // Unavailable global function
+  foo()         // expected-error{{Can't use this decl from an async context}}
+
+  // Available function
+  okay()
+
+  _ = { () -> Void in
+    // Check unavailable things inside of a nested synchronous closure
+    _ = Bop()
     foo()
     bop.foo()
+    bop.muppet()
 
-    let _ = { () async -> () in
+    _ = { () async -> Void in
+      // Check Unavailable things inside of a nested async closure
       foo()           // expected-error@:7{{Can't use this decl from an async context}}
       bop.foo()       // expected-error@:11{{Can't use this decl from an async context}}
-      let _ = Bip()   // expected-error@:15{{Can't use this type from an async context}}
-      let _ = Bop()   // expected-error@:15{{Can't use this decl from an async context}}
+      bop.muppet()    // expected-error@:11{{Can't use this decl from an async context}}
+      _ = Bop()       // expected-error@:11{{Can't use this decl from an async context}}
     }
   }
 
-  let _ = { () async -> () in
-    let _ = Bip() // expected-error@:13{{Can't use this type from an async context}}
-    let _ = Bop() // expected-error@:13{{Can't use this decl from an async context}}
+  _ = { () async -> Void in
+    _ = Bop()     // expected-error@:9{{Can't use this decl from an async context}}
     foo()         // expected-error@:5{{Can't use this decl from an async context}}
     bop.foo()     // expected-error@:9{{Can't use this decl from an async context}}
+    bop.muppet()  // expected-error@:9{{Can't use this decl from an async context}}
 
-    let _ = {
+    _ = {
       foo()
       bop.foo()
-      let _ = Bip()
-      let _ = Bop()
+      _ = Bop()
     }
   }
 

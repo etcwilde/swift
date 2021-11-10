@@ -680,7 +680,7 @@ SIMPLE_DECL_ATTR(_noImplicitCopy, NoImplicitCopy,
   122)
 
 SIMPLE_DECL_ATTR(unavailableFromAsync, UnavailableFromAsync,
-  OnAbstractFunction | OnGenericType |
+  OnFunc | OnConstructor |
   ABIStableToAdd | ABIStableToRemove |
   APIBreakingToAdd | APIStableToRemove,
   123)

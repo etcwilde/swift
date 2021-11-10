@@ -4278,24 +4278,11 @@ void swift::checkAsyncAvailability(AbstractFunctionDecl &decl) {
       if (inAsyncContext()) {
         // If we're in an async context, emit diagnostics, otherwise don't say
         // anything.
-        if (ConstructorRefCallExpr *constructor = dyn_cast<ConstructorRefCallExpr>(expr)) {
-          // Check that the underlying type is accessible from an async context
-          CanType constructedType = constructor->getType()->getAs<AnyFunctionType>()->getResult()->getCanonicalType();
-          NominalTypeDecl *decl = constructedType->getAnyNominal();
-          if (isDeclUnavailable(decl))
-            ctx.Diags.diagnose(constructor->getLoc(), diag::pound_error, "Can't use this type from an async context");
-        } else if (SelfApplyExpr *selfApply = dyn_cast<SelfApplyExpr>(expr)) {
-          // If we are directly applying a variable of an unavailable type, get
-          // mad.
-          CanType applicationType = cast<VarDecl>(cast<DeclRefExpr>(selfApply->getBase())->getDecl())->getType()->getCanonicalType();
-          NominalTypeDecl *decl = applicationType->getAnyNominal();
-          if (isDeclUnavailable(decl)) {
+        if (DeclRefExpr *declRefExpr = dyn_cast<DeclRefExpr>(expr)) {
+          if (isDeclRefExprUnavailable(declRefExpr)) {
             ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
                 "Can't use this decl from an async context");
           }
-        } else if (isDeclRefExprUnavailable(dyn_cast<DeclRefExpr>(expr))) {
-          ctx.Diags.diagnose(expr->getLoc(), diag::pound_error,
-              "Can't use this decl from an async context");
         }
       }
       return { true, expr};
