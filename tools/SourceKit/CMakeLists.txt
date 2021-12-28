@@ -123,6 +123,6 @@ if(SWIFT_BUILD_HOST_DISPATCH)
   endif()
 endif()
 
-add_subdirectory(include)
+add_subdirectory(include/SourceKit/Core)
 add_subdirectory(lib)
 add_subdirectory(tools)

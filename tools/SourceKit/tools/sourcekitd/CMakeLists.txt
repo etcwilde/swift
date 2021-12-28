@@ -1,2 +1,2 @@
-add_subdirectory(lib)
+add_subdirectory(lib/API)
 add_subdirectory(bin)
