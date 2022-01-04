@@ -23,7 +23,9 @@ if(NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
     BlocksRuntime)
 endif()
 
-add_dependencies(sourcekitd-test sourcekitdTestOptionsTableGen)
+add_dependencies(sourcekitd-test
+                 sourcekitdTestOptionsTableGen
+                 generated_sourcekit_uids)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
   set_target_properties(sourcekitd-test PROPERTIES

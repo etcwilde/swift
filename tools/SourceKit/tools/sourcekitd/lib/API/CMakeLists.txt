@@ -20,6 +20,8 @@ target_link_libraries(sourcekitdAPI PRIVATE
   SourceKitSupport
   SourceKitSwiftLang)
 
+add_dependencies(sourcekitdAPI generated_sourcekit_uids)
+
 if(APPLE AND HAVE_XPC_H)
   target_sources(sourcekitdAPI PRIVATE
     sourcekitdAPI-XPC.cpp)

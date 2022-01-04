@@ -64,4 +64,4 @@ target_link_libraries(SourceKitSwiftLang PRIVATE
   clangAST
   clangAPINotes
   clangBasic)
-add_dependencies(SourceKitSwiftLang clang-tablegen-targets)
+add_dependencies(SourceKitSwiftLang clang-tablegen-targets generated_sourcekit_uids)

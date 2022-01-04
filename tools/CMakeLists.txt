@@ -13,9 +13,6 @@ option(BUILD_SOURCEKIT_XPC_SERVICE
 
 # Add generated libSyntax headers to global dependencies.
 list(APPEND LLVM_COMMON_DEPENDS swift-syntax-generated-headers)
-if(SWIFT_BUILD_SOURCEKIT)
-  list(APPEND LLVM_COMMON_DEPENDS generated_sourcekit_uids)
-endif()
 
 add_swift_tool_subdirectory(driver)
 add_swift_tool_subdirectory(sil-opt)
