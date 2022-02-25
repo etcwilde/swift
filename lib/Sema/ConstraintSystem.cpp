@@ -3071,6 +3071,25 @@ void ConstraintSystem::bindOverloadType(
   llvm_unreachable("Unhandled OverloadChoiceKind in switch.");
 }
 
+static bool isMainResolution(AbstractFunctionDecl *afd, DeclContext *dc) {
+  // If we are working with a main function and the target swift version
+  // is new enough, treat the struct containing the main function as an
+  // asynchronous context (just for this function) so that we resolve to
+  // the asynchronous overload.
+  bool isMain = false;
+  if (const FuncDecl *func = dyn_cast<FuncDecl>(afd)) {
+    if (func->isMainTypeMainMethod()) {
+      ASTContext &ctx = dc->getASTContext();
+      const bool contextIsStruct = isa<NominalTypeDecl>(dc);
+      const bool supportsAsync =
+          AvailabilityContext::forDeploymentTarget(ctx).isContainedIn(
+              ctx.getBackDeployedConcurrencyAvailability());
+      isMain = contextIsStruct && supportsAsync;
+    }
+  }
+  return isMain;
+}
+
 void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
                                        Type boundType,
                                        OverloadChoice choice,
@@ -3187,7 +3206,13 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
     // If we're choosing an asynchronous declaration within a synchronous
     // context, or vice-versa, increase the async/async mismatch score.
     if (auto func = dyn_cast<AbstractFunctionDecl>(decl)) {
-      if (!func->hasPolymorphicEffect(EffectKind::Async) &&
+      if (isMainResolution(func, useDC)) {
+        if (!func->isAsyncContext()) {
+          // Looking at a synchronous main function while targeting a swift with
+          // concurrency support. Prefer async main overload
+          increaseScore(SK_SyncInAsync);
+        }
+      } else if (!func->hasPolymorphicEffect(EffectKind::Async) &&
           func->isAsyncContext() != isAsynchronousContext(useDC)) {
         increaseScore(
             func->isAsyncContext() ? SK_AsyncInSyncMismatch : SK_SyncInAsync);
