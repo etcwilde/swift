@@ -5,6 +5,8 @@ from database import Database
 import argparse
 import pathlib
 import sys
+import os
+from datetime import datetime
 
 
 SCHEMA_VERSION=0.0
@@ -13,8 +15,9 @@ SCHEMA_VERSION=0.0
 def init_db(db, clear):
     with db.transaction() as t:
         if clear:
-            for table in ["platform", "toolchain", "sdk", "files", "build_info",
-                          "size", "toolchain_files", "sdk_files"]:
+            for table in [
+                    "platform", "toolchain", "sdk", "file_type", "file",
+                    "build_info", "size", "toolchain_file", "sdk_file"]:
                 t.single_query(f"DROP TABLE IF EXISTS {table};")
     with open('schema.sql', 'r') as sqlfile:
         db.executescript(sqlfile.read())
@@ -26,13 +29,61 @@ def init_db(db, clear):
 
 
 def update_db_main(args):
+    # Check the path directory exists
+    if not args.path.is_dir():
+        print(f"Error: directory '{args.path}' not found", file=sys.stderr)
+
     with Database(args.database) as db:
         if args.init:
             init_db(db, args.clear)
 
+        # Insertion is a single transaction so that we can roll back if an error
+        # happens without partial results lingering
+        with db.transaction() as t:
+            # Setup platform if it hasn't already been inserted
+            t.single_query("INSERT OR IGNORE INTO platform (name) VALUES (?);",
+                                        (args.platform.lower(), ))
+            (platformid,) = t.single_query("SELECT pid FROM platform WHERE name = ?;", (args.platform.lower(),)).fetchone()
+            # Setup filetypes
+            # encoded here to avoid breaking the database
+            t.multi_query("INSERT OR IGNORE INTO file_type (tid, name) VALUES \
+                           (?, ?);",
+                           [(1, "file"), (2, "directory"), (3, "symlink")])
+
+            # Build info
+            bid = t.single_query("INSERT INTO build_info (date, pid, blob) VALUES \
+                                  (?, ?, ?);",
+                                  (str(datetime.now().astimezone().replace(microsecond=0).isoformat()),
+                                   platformid, args.build_metadata)).lastrowid
+
+            for (root, directories, files) in os.walk(args.path, topdown=False,
+                                                      onerror=False,
+                                                      followlinks=True):
+                # Insert files
+                for file in files:
+                    path = pathlib.Path(os.path.join(root, file))
+                    if path.is_symlink():
+                        ftype = 3
+                    elif path.is_file():
+                        ftype = 1
+                    else:
+                        print(f"Error; unknown file type {path}",
+                              file=sys.stderr)
+                        t.rollback()
+                        return
+                    stats = os.stat(path, follow_symlinks=False)
+                    short_path = str(path.relative_to(args.path))
+                    t.single_query("INSERT OR IGNORE INTO file (filetype, path) VALUES (?, ?);",
+                                          (ftype, short_path))
+                    (fid,) = t.single_query("SELECT fid FROM file WHERE path = ?;",
+                                            (short_path,)).fetchone()
+                    t.single_query("INSERT INTO size (bid, fid, bytes) VALUES \
+                                    (?, ?, ?);",
+                                    (bid, fid, stats.st_size))
 
 
 def main():
+    # Requires at least python 3.6 (os.stat parameters and path type)
     parser = argparse.ArgumentParser(description="Collect toolchain size information")
     commands = parser.add_subparsers()
 
@@ -44,6 +95,7 @@ def main():
     update.add_argument('--database', type=pathlib.Path, default="/tmp/toolchain-size.db")
     update.add_argument('--build', type=str, required=True, help="build identifier")
     update.add_argument('--build-metadata', type=bytes, help="blob of data associated with the build")
+    update.add_argument('--platform', type=str, required=True, help="Platform name (e.g, macos, linux, windows)")
     update.set_defaults(func=update_db_main)
     args = parser.parse_args()
     args.func(args)
