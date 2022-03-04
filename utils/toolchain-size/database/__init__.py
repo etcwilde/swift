@@ -130,10 +130,9 @@ class OpenTransaction:
         :returns: QueryResults, an iterator to the results of the query
         """
         if args is None:
-            self.cursor.execute(query)
+            return self.cursor.execute(query)
         else:
-            self.cursor.execute(query, args)
-        return QueryResults(self)
+            return self.cursor.execute(query, args)
 
     def multi_query(self, query, args):
         """
@@ -143,24 +142,8 @@ class OpenTransaction:
         :args:  A sequence of parameter sets for each row
         :returns: None
         """
-        self.cursor.executemany(query, args)
+        return self.cursor.executemany(query, args)
 
-
-class QueryResults():
-    """
-    An iterator wrapping the database query response
-    """
-    def __init__(self, transaction):
-        self.transaction = transaction
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        result = self.transaction.cursor.fetchone()
-        if result is None:
-            raise StopIteration
-        return result
 
 if __name__ == "__main__":
     contestants = [("Janice",), ("Alfred",), ("Tony",), ("Rachel",)]
