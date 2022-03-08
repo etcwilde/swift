@@ -56,9 +56,11 @@ def update_db_main(args):
                                   (str(datetime.now().astimezone().replace(microsecond=0).isoformat()),
                                    platformid, args.build_metadata)).lastrowid
 
+            bytecounts = {}
             for (root, directories, files) in os.walk(args.path, topdown=False,
                                                       onerror=False,
                                                       followlinks=True):
+                bytecounts[root] = 0
                 # Insert files
                 for file in files:
                     path = pathlib.Path(os.path.join(root, file))
@@ -80,6 +82,16 @@ def update_db_main(args):
                     t.single_query("INSERT INTO size (bid, fid, bytes) VALUES \
                                     (?, ?, ?);",
                                     (bid, fid, stats.st_size))
+                    bytecounts[root] += stats.st_size
+
+                for directory in directories:
+                    path = pathlib.Path(os.path.join(root, directory))
+                    bytecounts[root] += bytecounts[str(path)]
+                short_path = str(pathlib.Path(root).relative_to(args.path))
+                fid = t.single_query("INSERT INTO file (filetype, path) \
+                        VALUES (?, ?);", (2, short_path)).lastrowid
+                t.single_query("INSERT INTO size (bid, fid, bytes) VALUES \
+                        (?, ?, ?);", (bid, fid, bytecounts[root]))
 
 
 def main():
