@@ -47,7 +47,10 @@ class SwiftPM(product.Product):
             self.source_dir, 'Utilities', 'bootstrap')
 
         toolchain_path = self.native_toolchain_path(host_target)
-        swiftc = os.path.join(toolchain_path, "bin", "swiftc")
+        if self.toolchain.swiftc is not None:
+            swiftc = self.toolchain.swiftc
+        else:
+            swiftc = os.path.join(toolchain_path, "bin", "swiftc")
 
         # FIXME: We require llbuild build directory in order to build. Is
         # there a better way to get this?

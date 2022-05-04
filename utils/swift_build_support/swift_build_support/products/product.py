@@ -208,7 +208,13 @@ class Product(object):
 
     def native_toolchain_path(self, host_target):
         if self.args.native_swift_tools_path is not None:
-            return os.path.split(self.args.native_swift_tools_path)[0]
+            return os.path.dirname(self.args.native_swift_tools_path)
+        elif self.toolchain.swiftc is not None:
+            # FIXME: toolchain objects don't have a specific path per-se.
+            #        Custom toolchains may be set up differently such that
+            #        clang, swiftc, and other tools are not in the same
+            #        directory under `<root>/bin/swiftc`
+            return os.path.dirname(os.path.dirname(self.toolchain.swiftc))
         else:
             return self.install_toolchain_path(host_target)
 

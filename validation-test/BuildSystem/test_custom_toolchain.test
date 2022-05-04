@@ -11,3 +11,12 @@
 # CHECK-SAME: -DCMAKE_CXX_COMPILER:PATH=[[$CUSTOM_TOOLCHAIN_PATH]]clang++
 # CHECK-SAME: -DCMAKE_Swift_COMPILER:PATH=[[$CUSTOM_TOOLCHAIN_PATH]]swiftc
 # CHECK-SAME: -DCMAKE_MAKE_PROGRAM=[[$CUSTOM_TOOLCHAIN_PATH]]ninja
+
+# Check swiftpm build (uses separate build-script helper)
+
+# CHECK-LABEL: --- Building swiftpm ---
+# CHECK-NEXT: SOURCE_DIRpm/Utilities/bootstrap build
+# CHECK-SAME: --swiftc-path [[$CUSTOM_TOOLCHAIN_PATH]]swiftc
+# CHECK-SAME: --clang-path [[$CUSTOM_TOOLCHAIN_PATH]]clang
+# CHECK-SAME: --cmake-path [[$CUSTOM_TOOLCHAIN_PATH]]cmake
+# CHECK-SAME: --ninja-path [[$CUSTOM_TOOLCHAIN_PATH]]ninja
