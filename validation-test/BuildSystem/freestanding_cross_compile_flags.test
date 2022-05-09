@@ -1,0 +1,13 @@
+# RUN: %empty-directory(%t)
+# RUN: SKIP_XCODE_VERSION_CHECK=1 SWIFT_BUILD_ROOT=%t %swift_src_root/utils/build-script --dry-run --static-libxml2 --swift-freestanding-ld-path %t/gcc-cross-toolchain/arm-none-gcc-ld --swift-freestanding-gcc-toolchain %t/gcc-cross-toolchain --swift-freestanding-sysroot %t/cross-sysroot | %FileCheck %s
+
+# CHECK-LABEL: --- Building libxml2 ---
+# CHECK: cmake -DBUILD_SHARED_LIBS=NO
+# CHECK-SAME: -DCMAKE_C_FLAGS=
+# CHECK-SAME: --gcc-toolchain=BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/gcc-cross-toolchain
+# CHECK-SAME: --ld-path=BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/gcc-cross-toolchain/arm-none-gcc-ld
+# CHECK-SAME: --sysroot BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/cross-sysroot
+# CHECK-SAME: -DCMAKE_CXX_FLAGS=
+# CHECK-SAME: --gcc-toolchain=BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/gcc-cross-toolchain
+# CHECK-SAME: --ld-path=BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/gcc-cross-toolchain/arm-none-gcc-ld
+# CHECK-SAME: --sysroot BUILD_DIR/validation-test-{{[^/]+}}/BuildSystem/Output/freestanding_cross_compile_flags.test.tmp/cross-sysroot

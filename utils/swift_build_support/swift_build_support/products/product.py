@@ -369,6 +369,15 @@ class Product(object):
         if self.is_release():
             cross_flags.append('-fno-stack-protector')
 
+        if self.args.swift_freestanding_gcc_toolchain:
+            cross_flags.append(f'--gcc-toolchain={self.args.swift_freestanding_gcc_toolchain}')
+
+        if self.args.swift_freestanding_ld_path:
+            cross_flags.append(f'--ld-path={self.args.swift_freestanding_ld_path}')
+
+        if self.args.swift_freestanding_sysroot:
+            cross_flags.append(f'--sysroot {self.args.swift_freestanding_sysroot}')
+
         return self.common_c_flags + cross_flags
 
 

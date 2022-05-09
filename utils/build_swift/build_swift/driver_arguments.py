@@ -614,6 +614,21 @@ def create_argument_parser():
     option('--swift-freestanding-is-darwin', toggle_true,
            help='True if the freestanding platform is a Darwin one.')
 
+    option('--swift-freestanding-gcc-toolchain', store, default=None,
+           metavar='PATH',
+           help='set the path to where to find the cross-compiling gcc \
+                   toolchain')
+
+    option('--swift-freestanding-ld-path', store, default=None,
+           metavar='PATH',
+           help='set the path to the cross-compiling linker')
+
+
+    option('--swift-freestanding-sysroot', store, default=None,
+           metavar='PATH',
+           help='set the path to where to find the cross-compiling libraries \
+                   and headers')
+
     # -------------------------------------------------------------------------
     in_group('Options to select projects')
 
