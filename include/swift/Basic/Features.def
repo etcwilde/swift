@@ -126,6 +126,9 @@ EXPERIMENTAL_FEATURE(OpaqueTypeErasure)
 /// wrapped type.
 EXPERIMENTAL_FEATURE(TypeWrappers)
 
+/// Parse using the Swift (swift-syntax) parser and use ASTGen.
+EXPERIMENTAL_FEATURE(SwiftParser)
+
 #undef EXPERIMENTAL_FEATURE
 #undef UPCOMING_FEATURE
 #undef SUPPRESSIBLE_LANGUAGE_FEATURE
