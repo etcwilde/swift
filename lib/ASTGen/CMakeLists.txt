@@ -3,9 +3,7 @@ set(CMAKE_Swift_ARCHIVE_CREATE "<CMAKE_AR> crs <TARGET> <OBJECTS>")
 set(CMAKE_Swift_ARCHIVE_FINISH "")
 
 if (SWIFT_SWIFT_PARSER)
-    add_library(ASTGen
-            ASTGen.swift)
-
+    add_swift_host_library(ASTGen STATIC ASTGen.swift)
     target_link_libraries(ASTGen PUBLIC
             SwiftSyntax
             SwiftParser
@@ -17,8 +15,7 @@ if (SWIFT_SWIFT_PARSER)
     target_include_directories(ASTGen PUBLIC
             "${SWIFT_PATH_TO_EARLYSWIFTSYNTAX_BUILD_DIR}/swift")
 else()
-    add_library(ASTGen
-            DummyASTGen.swift)
+    add_swift_host_library(ASTGen STATIC ASTGen.swift)
 endif()
 
 set_target_properties(ASTGen PROPERTIES LINKER_LANGUAGE Swift)

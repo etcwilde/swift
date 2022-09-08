@@ -63,7 +63,8 @@ if (SWIFT_SWIFT_PARSER)
   )
 endif()
 
-add_dependencies(swiftParse ASTGen)
+target_link_libraries(swiftParse PUBLIC ASTGen)
+
 add_dependencies(swiftParse swift-parse-syntax-generated-headers)
 
 set_swift_llvm_is_available(swiftParse)
