@@ -22,6 +22,7 @@
 #include "swift/Parse/ParseVersion.h"
 #include "swift/Strings.h"
 #include "swift/SymbolGraphGen/SymbolGraphOptions.h"
+#include "swift/Basic/LangOptions.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Option/Arg.h"
@@ -1073,6 +1074,19 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
     Opts.WarnRedundantRequirements = true;
 
   Opts.DumpTypeWitnessSystems = Args.hasArg(OPT_dump_type_witness_systems);
+
+  if (Args.hasArg(OPT_verify_entrypoint) &&
+      Args.hasArg(OPT_verify_no_entrypoint)) {
+    Diags.diagnose(SourceLoc(), diag::error_invalid_arg_combination,
+        "verify-entrypoint",
+        "verify-no-entrypoint");
+    HadError = true;
+  } else if (Args.hasArg(OPT_verify_entrypoint)) {
+    Opts.DiagnoseEntrypoints =
+        EntryPointDiagnosticBehavior::DiagnoseMissingEntrypoint;
+  } else if (Args.hasArg(OPT_verify_no_entrypoint)) {
+    Opts.DiagnoseEntrypoints = EntryPointDiagnosticBehavior::DiagnoseEntrypoint;
+  }
 
   if (const Arg *A = Args.getLastArg(options::OPT_concurrency_model)) {
     Opts.ActiveConcurrencyModel =

@@ -439,6 +439,9 @@ REMARK(interface_file_backup_used,none,
 
 WARNING(warn_flag_deprecated,none, "flag '%0' is deprecated", (StringRef))
 
+ERROR(unexected_entrypoint,none, "unexpected entrypoint in module", ())
+ERROR(missing_entrypoint,none, "expected entrypoint in module", ())
+
 // Dependency Verifier Diagnostics
 ERROR(missing_member_dependency,none,
       "expected "

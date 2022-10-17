@@ -101,6 +101,12 @@ namespace swift {
     TaskToThread,
   };
 
+  enum class EntryPointDiagnosticBehavior : uint8_t {
+    Ignore,
+    DiagnoseMissingEntrypoint,
+    DiagnoseEntrypoint
+  };
+
   /// A collection of options that affect the language dialect and
   /// provide compiler debugging facilities.
   class LangOptions final {
@@ -186,7 +192,7 @@ namespace swift {
     /// Maximum number of typo corrections we are allowed to perform.
     /// This is disabled by default until we can get typo-correction working within acceptable performance bounds.
     unsigned TypoCorrectionLimit = 0;
-    
+
     /// Should access control be respected?
     bool EnableAccessControl = true;
 
@@ -522,6 +528,10 @@ namespace swift {
 
     /// Enables dumping type witness systems from associated type inference.
     bool DumpTypeWitnessSystems = false;
+
+    /// Enables emitting diagnostics
+    EntryPointDiagnosticBehavior DiagnoseEntrypoints =
+        EntryPointDiagnosticBehavior::Ignore;
 
     /// The model of concurrency to be used.
     ConcurrencyModel ActiveConcurrencyModel = ConcurrencyModel::Standard;

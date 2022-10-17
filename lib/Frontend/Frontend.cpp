@@ -36,6 +36,7 @@
 #include "swift/Serialization/SerializedModuleLoader.h"
 #include "swift/Strings.h"
 #include "swift/Subsystems.h"
+#include "swift/Basic/LangOptions.h"
 #include "clang/AST/ASTContext.h"
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/SmallVector.h"
@@ -1224,6 +1225,29 @@ void CompilerInstance::finishTypeChecking() {
     performWholeModuleTypeChecking(SF);
     return false;
   });
+
+  // TODO: put this somewhere more reasonable
+  if (getASTContext().LangOpts.DiagnoseEntrypoints !=
+      EntryPointDiagnosticBehavior::Ignore) {
+    SourceFile &mainFile = getMainModule()->getMainSourceFile();
+    switch(getASTContext().LangOpts.DiagnoseEntrypoints) {
+      case EntryPointDiagnosticBehavior::DiagnoseEntrypoint:
+        if (mainFile.hasEntryPoint()) {
+          SourceLoc diagLoc = SourceLoc();
+          if (mainFile.hasMainDecl()) {
+            diagLoc = mainFile.getMainDeclDiagLoc();
+          }
+          getASTContext().Diags.diagnose(diagLoc, diag::unexected_entrypoint);
+        }
+        break;
+      case EntryPointDiagnosticBehavior::DiagnoseMissingEntrypoint:
+        if (!mainFile.hasEntryPoint())
+          getASTContext().Diags.diagnose(SourceLoc(), diag::missing_entrypoint);
+        break;
+      case EntryPointDiagnosticBehavior::Ignore:
+        break;
+    }
+  }
 
   forEachSourceFile([](SourceFile &SF) {
     loadDerivativeConfigurations(SF);

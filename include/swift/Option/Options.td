@@ -750,6 +750,16 @@ def save_optimization_record_passes :
            "the generated optimization record "
            "(by default, include all passes)">, MetaVarName<"<regex>">;
 
+def verify_entrypoint :
+  Flag<["-"], "verify-entrypoint">,
+  Flags<[FrontendOption, NoInteractiveOption]>,
+  HelpText<"Verify that the module contains a program entrypoint">;
+
+def verify_no_entrypoint :
+  Flag<["-"], "verify-no-entrypoint">,
+  Flags<[FrontendOption, NoInteractiveOption]>,
+  HelpText<"Verify that the module does not contain a program entrypoint">;
+
 // Platform options.
 def enable_app_extension : Flag<["-"], "application-extension">,
   Flags<[FrontendOption, NoInteractiveOption]>,
