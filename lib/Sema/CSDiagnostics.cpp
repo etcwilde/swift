@@ -3832,7 +3832,7 @@ void MissingMemberFailure::diagnoseUnsafeCxxMethod(SourceLoc loc,
     llvm::dbgs() << "====================================================\n";
     llvm::dbgs() << "====================================================\n\n";
     
-    llvm::dbgs() << "THE NAME: "; name.print(llvm::dbgs());
+    llvm::dbgs() << "THE NAME: "; name.dump();
     
     llvm::dbgs() << "====================================================\n";
     llvm::dbgs() << "====================================================\n\n";
@@ -3865,7 +3865,7 @@ void MissingMemberFailure::diagnoseUnsafeCxxMethod(SourceLoc loc,
            baseType->getAnyNominal()->lookupDirect(DeclBaseName(unsafeId))) {
         llvm::dbgs() << "**FOUND UNSAFE VERSION**\n";
         llvm::dbgs() << "UNSAFE: ";
-        found->dump(llvm::dbgs());
+        found->dump();
 
         if (auto cxxMethod = dyn_cast_or_null<clang::CXXMethodDecl>(found->getClangDecl())) {
           llvm::dbgs() << "FOUND CXX METHOD.";
@@ -3899,7 +3899,7 @@ void MissingMemberFailure::diagnoseUnsafeCxxMethod(SourceLoc loc,
            baseType->getAnyNominal()->lookupDirect(DeclBaseName(safeId))) {
         llvm::dbgs() << "**FOUND SAFE VERSION**\n";
         llvm::dbgs() << "UNSAFE: ";
-        found->dump(llvm::dbgs());
+        found->dump();
 
         if (auto cxxMethod = dyn_cast_or_null<clang::CXXMethodDecl>(found->getClangDecl())) {
           llvm::dbgs() << "FOUND CXX METHOD.";
@@ -3922,10 +3922,10 @@ void MissingMemberFailure::diagnoseUnsafeCxxMethod(SourceLoc loc,
     llvm::dbgs() << "====================================================\n";
     llvm::dbgs() << "====================================================\n\n";
     llvm::dbgs() << "(IMPORTED) SWIFT TYPE: ";
-    baseType->dump(llvm::dbgs());
+    baseType->dump();
     
     llvm::dbgs() << "(IMPORTED) SWIFT DECL: ";
-    baseType->getAnyNominal()->print(llvm::dbgs());
+    baseType->getAnyNominal()->dump();
     
     // And for my final trick, I will dump the whole lookup table.
     llvm::dbgs() << "====================================================\n";
