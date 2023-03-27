@@ -1972,8 +1972,11 @@ public:
       : CanType(CanMetatypeType::get(substInstance));
   }
   
-  CanType handleGenericNominalType(CanType orig, CanType subst,
-                                   CanGenericSignature origSig) {
+  CanType handleGenericNominalType(AbstractionPattern origPattern, CanType subst) {
+    CanType orig = origPattern.getType();
+    CanGenericSignature origSig = origPattern.getGenericSignatureOrNull();
+    auto origPatternSubs = origPattern.getGenericSubstitutions();
+
     // If there are no loose type parameters in the pattern here, we don't need
     // to do a recursive visit at all.
     if (!orig->hasTypeParameter()
@@ -2018,6 +2021,7 @@ public:
     if (differentOrigClass) {
       orig = subst;
       origSig = TC.getCurGenericSignature();
+      origPatternSubs = SubstitutionMap();
       assert((!subst->hasTypeParameter() || origSig) &&
              "lowering mismatched interface types in a context without "
              "a generic signature");
@@ -2039,7 +2043,8 @@ public:
         ->getCanonicalType();
 
       replacementTypes[gp->getCanonicalType()->castTo<SubstitutableType>()]
-          = visit(substParamTy, AbstractionPattern(origSig, origParamTy));
+          = visit(substParamTy,
+                  AbstractionPattern(origPatternSubs, origSig, origParamTy));
     }
 
     auto newSubMap = SubstitutionMap::get(nomGenericSig,
@@ -2059,8 +2064,7 @@ public:
     // If the type is generic (because it's a nested type in a generic context),
     // process the generic type bindings.
     if (!isa<ProtocolDecl>(nomDecl) && nomDecl->isGenericContext()) {
-      return handleGenericNominalType(pattern.getType(), nom,
-                                      pattern.getGenericSignatureOrNull());
+      return handleGenericNominalType(pattern, nom);
     }
     
     // Otherwise, there are no structural type parameters to visit.
@@ -2069,8 +2073,7 @@ public:
   
   CanType visitBoundGenericType(CanBoundGenericType bgt,
                                 AbstractionPattern pattern) {
-    return handleGenericNominalType(pattern.getType(), bgt,
-                                    pattern.getGenericSignatureOrNull());
+    return handleGenericNominalType(pattern, bgt);
   }
 
   CanType visitPackType(CanPackType pack, AbstractionPattern pattern) {
@@ -2096,7 +2099,7 @@ public:
     // the pack substitution for that parameter recorded in the pattern.
 
     // Remember that we're within an expansion.
-    // FIXME: when we introduce PackReferenceType we'll need to be clear
+    // FIXME: when we introduce PackElementType we'll need to be clear
     // about which pack expansions to treat this way.
     llvm::SaveAndRestore<bool> scope(WithinExpansion, true);
 
