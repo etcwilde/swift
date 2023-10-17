@@ -725,9 +725,6 @@ static SILValue tryRewriteToPartialApplyStack(
 
   llvm::SmallSetVector<SILValue, 4> borrowedOriginals;
 
-  unsigned appliedArgStartIdx =
-        newPA->getOrigCalleeType()->getNumParameters() - newPA->getNumArguments();
-
   for (unsigned i : indices(newPA->getArgumentOperands())) {
     auto &arg = newPA->getArgumentOperands()[i];
     SILValue copy = arg.get();
@@ -750,12 +747,11 @@ static SILValue tryRewriteToPartialApplyStack(
     }
     
     // Is the capture a borrow?
-
-    auto paramIndex = i + appliedArgStartIdx;
-    auto param = newPA->getOrigCalleeType()->getParameters()[paramIndex];
-    LLVM_DEBUG(param.print(llvm::dbgs());
-               llvm::dbgs() << '\n');
-    if (!param.isIndirectInGuaranteed()) {
+    auto paramIndex = newPA
+      ->getArgumentIndexForOperandIndex(i + newPA->getArgumentOperandNumber())
+      .value();
+    if (!newPA->getOrigCalleeType()->getParameters()[paramIndex]
+          .isIndirectInGuaranteed()) {
       LLVM_DEBUG(llvm::dbgs() << "-- not an in_guaranteed parameter\n";
                  newPA->getOrigCalleeType()->getParameters()[paramIndex]
                    .print(llvm::dbgs());
