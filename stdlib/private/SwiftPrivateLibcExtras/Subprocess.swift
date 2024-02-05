@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Swift
 import SwiftPrivate
 #if canImport(Darwin)
 import Darwin
@@ -24,6 +25,8 @@ import WASILibc
 #elseif os(Windows)
 import CRT
 import WinSDK
+#else
+#error("Unknown platform libc")
 #endif
 
 #if !os(WASI)

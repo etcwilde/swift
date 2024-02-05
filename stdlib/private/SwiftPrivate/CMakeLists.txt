@@ -1,43 +1,21 @@
-set(swift_swiftprivate_compile_flags
-    "-parse-stdlib"
-    "-Xfrontend" "-disable-access-control")
+gyb_expand(AtomicInt.swift.gyb
+  AtomicInt.swift
+  FLAGS "-DCMAKE_SIZEOF_VOID_P=${SwiftStdlib_SIZEOF_POINTER}")
 
-if(SWIFT_BUILD_SDK_OVERLAY)
-set(swift_swiftprivate_darwin_dependencies Darwin)
-else()
-set(swift_swiftprivate_darwin_dependencies)
-endif()
-
-add_swift_target_library(swiftSwiftPrivate ${SWIFT_STDLIB_LIBRARY_BUILD_TYPES} IS_STDLIB
-  # This file should be listed the first.  Module name is inferred from the
-  # filename.
+add_library(swiftSwiftPrivate
   SwiftPrivate.swift
-
   IO.swift
   ShardedAtomicCounter.swift
-
-  "${SWIFT_SOURCE_DIR}/stdlib/linker-support/magic-symbols-for-install-name.c"
-
-  GYB_SOURCES
-    AtomicInt.swift.gyb
-
-  SWIFT_MODULE_DEPENDS_OSX ${swift_swiftprivate_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_IOS ${swift_swiftprivate_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_TVOS ${swift_swiftprivate_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_WATCHOS ${swift_swiftprivate_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_MACCATALYST ${swift_swiftprivate_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_FREESTANDING "${SWIFT_FREESTANDING_TEST_DEPENDENCIES}"
-  SWIFT_MODULE_DEPENDS_ANDROID Android
-  SWIFT_MODULE_DEPENDS_LINUX Glibc
-  SWIFT_MODULE_DEPENDS_LINUX_STATIC Musl
-  SWIFT_MODULE_DEPENDS_FREEBSD Glibc
-  SWIFT_MODULE_DEPENDS_OPENBSD Glibc
-  SWIFT_MODULE_DEPENDS_CYGWIN Glibc
-  SWIFT_MODULE_DEPENDS_HAIKU Glibc
-  SWIFT_MODULE_DEPENDS_WASI WASILibc
-  SWIFT_MODULE_DEPENDS_WINDOWS CRT WinSDK
-  SWIFT_COMPILE_FLAGS ${swift_swiftprivate_compile_flags} ${SWIFT_STANDARD_LIBRARY_SWIFT_FLAGS}
-  INSTALL_IN_COMPONENT stdlib-experimental
-  DARWIN_INSTALL_NAME_DIR "${SWIFT_DARWIN_STDLIB_PRIVATE_INSTALL_NAME_DIR}"
-  MACCATALYST_BUILD_FLAVOR "zippered"
-  )
+  "${CMAKE_CURRENT_BINARY_DIR}/AtomicInt.swift"
+  "${CMAKE_SOURCE_DIR}/linker-support/magic-symbols-for-install-name.c")
+target_link_libraries(swiftSwiftPrivate PRIVATE
+  swiftCore
+  swiftShims
+  PlatformOverlay)
+set_target_properties(swiftSwiftPrivate PROPERTIES Swift_MODULE_NAME SwiftPrivate)
+target_compile_options(swiftSwiftPrivate PRIVATE
+  $<$<COMPILE_LANGUAGE:Swift>:-parse-stdlib>
+  "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -require-explicit-availability=ignore>"
+  "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -enforce-exclusivity=unchecked>"
+  "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-access-control>")
+>>>>>>> 6800196610e (Build stdlib with correct CMake usage)

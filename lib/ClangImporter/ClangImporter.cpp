@@ -490,14 +490,16 @@ void importer::getNormalInvocationArguments(
     });
   }
 
-  // If there are no shims in the resource dir, add a search path in the SDK.
-  SmallString<128> shimsPath(searchPathOpts.RuntimeResourcePath);
-  llvm::sys::path::append(shimsPath, "shims");
-  if (!llvm::sys::fs::exists(shimsPath)) {
-    shimsPath = searchPathOpts.getSDKPath();
-    llvm::sys::path::append(shimsPath, "usr", "lib", "swift", "shims");
-    invocationArgStrs.insert(invocationArgStrs.end(),
-                             {"-isystem", std::string(shimsPath.str())});
+  if (!searchPathOpts.SkipRuntimeLibraryImportPaths) {
+    // If there are no shims in the resource dir, add a search path in the SDK.
+    SmallString<128> shimsPath(searchPathOpts.RuntimeResourcePath);
+    llvm::sys::path::append(shimsPath, "shims");
+    if (!llvm::sys::fs::exists(shimsPath)) {
+      shimsPath = searchPathOpts.getSDKPath();
+      llvm::sys::path::append(shimsPath, "usr", "lib", "swift", "shims");
+      invocationArgStrs.insert(invocationArgStrs.end(),
+                               {"-isystem", std::string(shimsPath.str())});
+    }
   }
 
   // Construct the invocation arguments for the current target.

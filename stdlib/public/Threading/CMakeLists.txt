@@ -1,13 +1,19 @@
-# This is the counterpart to lib/Threading/CMakeLists.txt.  Any updates
-# need to be reflected in both places.
+# FIXME: These files should be split for the stdlib and compiler so that we can
+#        separate the stdlib from the compiler repo
+add_library(swiftThreading STATIC
+  "${CMAKE_SOURCE_DIR}/../lib/Threading/C11.cpp"
+  "${CMAKE_SOURCE_DIR}/../lib/Threading/C11.cpp"
+  "${CMAKE_SOURCE_DIR}/../lib/Threading/Linux.cpp"
+  "${CMAKE_SOURCE_DIR}/../lib/Threading/Pthreads.cpp"
+  "${CMAKE_SOURCE_DIR}/../lib/Threading/Win32.cpp")
+target_link_libraries(swiftThreading PRIVATE swiftShims)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/modules")
-include(AddSwiftStdlib)
-
-# This should *not* include ThreadSanitizer.cpp, as that is part of libswiftCore
-add_swift_target_library(swiftThreading OBJECT_LIBRARY
-  "${SWIFT_SOURCE_DIR}/lib/Threading/C11.cpp"
-  "${SWIFT_SOURCE_DIR}/lib/Threading/Linux.cpp"
-  "${SWIFT_SOURCE_DIR}/lib/Threading/Pthreads.cpp"
-  "${SWIFT_SOURCE_DIR}/lib/Threading/Win32.cpp"
-  INSTALL_IN_COMPONENT never_install)
+if(NOT BUILD_SHARED_LIBS)
+  # if swiftConcurrency is built dynamically, this is linked into
+  # swiftConcurrency. If
+  # swiftConcurrency is static, we need to install this so that folks can link
+  # against it.
+  # TODO: Once we move to CMake 3.29+, we can make swiftThreading an
+  #       object library and insert the object directly in libswiftConcurrency.a
+  install(TARGETS swiftThreading)
+endif()

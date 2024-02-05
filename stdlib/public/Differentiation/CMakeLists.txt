@@ -10,54 +10,49 @@
 #
 #===----------------------------------------------------------------------===#
 
-if(SWIFT_STDLIB_ENABLE_VECTOR_TYPES)
-set(swiftDifferentiationSIMDFiles SIMDDifferentiation.swift.gyb)
-else()
-set(swiftDifferentiationSIMDFiles)
+if(NOT SwiftStdlib_ENABLE_EXTRA_SOURCES OR NOT SwiftStdlib_ENABLE_REFLECTION)
+  message(FATAL_ERROR "swift_Differentiation requires SwiftStdlib_ENABLE_EXTRA_SOURCES")
 endif()
 
-if(SWIFT_BUILD_SDK_OVERLAY)
-set(swiftDifferentiationDarwinDependencies Darwin)
-else()
-set(swiftDifferentiationDarwinDependencies)
-endif()
+gyb_expand(FloatingPointDifferentiation.swift.gyb
+    "${SwiftStdlib_SIZEOF_POINTER}/FloatingPointDifferentiation.swift"
+    FLAGS "-DCMAKE_SIZEOF_VOID_P=${SwiftStdlib_SIZEOF_POINTER}")
+gyb_expand(TgmathDerivatives.swift.gyb
+   "${SwiftStdlib_SIZEOF_POINTER}/TgmathDerivatives.swift"
+   FLAGS "-DCMAKE_SIZEOF_VOID_P=${SwiftStdlib_SIZEOF_POINTER}")
 
-add_swift_target_library(swift_Differentiation ${SWIFT_STDLIB_LIBRARY_BUILD_TYPES} IS_STDLIB
+add_library(swift_Differentiation
   Differentiable.swift
   DifferentialOperators.swift
   DifferentiationUtilities.swift
   AnyDifferentiable.swift
   ArrayDifferentiation.swift
   OptionalDifferentiation.swift
+  "${CMAKE_CURRENT_BINARY_DIR}/${SwiftStdlib_SIZEOF_POINTER}/FloatingPointDifferentiation.swift"
+  "${CMAKE_CURRENT_BINARY_DIR}/${SwiftStdlib_SIZEOF_POINTER}/TgmathDerivatives.swift")
+set_target_properties(swift_Differentiation PROPERTIES Swift_MODULE_NAME _Differentiation)
+target_compile_options(swift_Differentiation PRIVATE
+  $<$<COMPILE_LANGUAGE:Swift>:-parse-stdlib>
+  $<$<COMPILE_LANGUAGE:Swift>:-nostdimport>)
+target_link_libraries(swift_Differentiation PRIVATE
+  swiftCore
+  swiftShims
+  PlatformOverlay)
 
-  "${SWIFT_SOURCE_DIR}/stdlib/linker-support/magic-symbols-for-install-name.c"
+if(SwiftStdlib_ENABLE_VECTOR_TYPES)
+  gyb_expand(SIMDDifferentiation.swift.gyb
+    "${SwiftStdlib_SIZEOF_POINTER}/SIMDDifferentiation.swift"
+    FLAGS "-DCMAKE_SIZEOF_VOID_P=${SwiftStdlib_SIZEOF_POINTER}")
+  target_sources(swift_Differentiation PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}/${SwiftStdlib_SIZEOF_POINTER}/SIMDDifferentiation.swift")
+endif()
 
-  GYB_SOURCES
-    FloatingPointDifferentiation.swift.gyb
-    TgmathDerivatives.swift.gyb
-    ${swiftDifferentiationSIMDFiles}
+install(TARGETS swift_Differentiation)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/_Differentiation.swiftmodule"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/swift/_Differentiation.swiftmodule"
+  RENAME "${SwiftStdlib_MODULE_TRIPLE}.swiftmodule")
 
-  SWIFT_MODULE_DEPENDS_OSX ${swiftDifferentiationDarwinDependencies}
-  SWIFT_MODULE_DEPENDS_IOS ${swiftDifferentiationDarwinDependencies}
-  SWIFT_MODULE_DEPENDS_TVOS ${swiftDifferentiationDarwinDependencies}
-  SWIFT_MODULE_DEPENDS_WATCHOS ${swiftDifferentiationDarwinDependencies}
-  SWIFT_MODULE_DEPENDS_XROS ${swiftDifferentiationDarwinDependencies}
-  SWIFT_MODULE_DEPENDS_ANDROID Android
-  SWIFT_MODULE_DEPENDS_LINUX Glibc
-  SWIFT_MODULE_DEPENDS_LINUX_STATIC Musl
-  SWIFT_MODULE_DEPENDS_FREEBSD Glibc
-  SWIFT_MODULE_DEPENDS_OPENBSD Glibc
-  SWIFT_MODULE_DEPENDS_CYGWIN Glibc
-  SWIFT_MODULE_DEPENDS_HAIKU Glibc
-  SWIFT_MODULE_DEPENDS_WASI WASILibc
-  SWIFT_MODULE_DEPENDS_WINDOWS CRT
-
-  C_COMPILE_FLAGS
-    -Dswift_Differentiation_EXPORTS
-  SWIFT_COMPILE_FLAGS
-    ${SWIFT_STANDARD_LIBRARY_SWIFT_FLAGS}
-    -parse-stdlib
-  LINK_FLAGS "${SWIFT_RUNTIME_SWIFT_LINK_FLAGS}"
-  INSTALL_IN_COMPONENT stdlib
-  SWIFT_MODULE_DEPENDS_MACCATALYST ${swiftDifferentiationDarwinDependencies}
-  MACCATALYST_BUILD_FLAVOR "zippered")
+if(SwiftStdlib_ENABLE_LIBRARY_EVOLUTION)
+  emit_swift_interface(swift_Differentiation)
+  install_swift_interface(swift_Differentiation)
+endif()

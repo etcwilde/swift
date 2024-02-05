@@ -2175,15 +2175,17 @@ const {
   result.insert(SearchPathOpts.RuntimeLibraryImportPaths.begin(),
                 SearchPathOpts.RuntimeLibraryImportPaths.end());
 
-  // ClangImporter special-cases the path for SwiftShims, so do the same here
-  // If there are no shims in the resource dir, add a search path in the SDK.
-  SmallString<128> shimsPath(SearchPathOpts.RuntimeResourcePath);
-  llvm::sys::path::append(shimsPath, "shims");
-  if (!llvm::sys::fs::exists(shimsPath)) {
-    shimsPath = SearchPathOpts.getSDKPath();
-    llvm::sys::path::append(shimsPath, "usr", "lib", "swift", "shims");
+  if (!SearchPathOpts.SkipRuntimeLibraryImportPaths) {
+    // ClangImporter special-cases the path for SwiftShims, so do the same here
+    // If there are no shims in the resource dir, add a search path in the SDK.
+    SmallString<128> shimsPath(SearchPathOpts.RuntimeResourcePath);
+    llvm::sys::path::append(shimsPath, "shims");
+    if (!llvm::sys::fs::exists(shimsPath)) {
+      shimsPath = SearchPathOpts.getSDKPath();
+      llvm::sys::path::append(shimsPath, "usr", "lib", "swift", "shims");
+    }
+    result.insert(shimsPath.str());
   }
-  result.insert(shimsPath.str());
 
   // Clang system modules are found in the SDK root
   SmallString<128> clangSysRootPath(SearchPathOpts.getSDKPath());

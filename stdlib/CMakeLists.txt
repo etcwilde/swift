@@ -1,244 +1,147 @@
+# TODO:
+#   - embedded stdlib builds          ** -- -Xfrontend -emit-empty-object-file
+#   - TBD-only builds                 **
+#   - SDK overlay
+#   - Catalyst support                *
+#   - install *.abi.json, swiftdoc, and swiftsourceinfo
+#   - Cxx interop
+#   - Backtracing
+#   - Missing Defines
+#     - SWIFT_STDLIB_HAS_LOCALE
+#     - SWIFT_STDLIB_HAS_STDIN
+#     - SWIFT_OBJC_INTEROP
+#     - SWIFT_PTRAUTH
+#     - SWIFT_STDLIB_HAS_ASL
+#     - SWIFT_STDLIB_HAS_MALLOC_TYPE
+#     - SWIFT_STDLIB_HAS_ENVIRON
+#     - SWIFT_RUNTIME_OS_VERSIONING
+#     - SWIFT_STDLIB_TASK_TO_THREAD_MODEL_CONCURRENCY
+#   - Find flag causing '<unknown>:0: warning: module 'SwiftOnoneSupport' cannot be built with any of the -experimental-skip-*-function-bodies* flags; they have been automatically disabled'
+#   - Fully isolate build against SDK swiftShims
+#     Modularization sees both the one we just built and the one from the SDK.
+#     swiftShims should actually be a compiler resource and come from the
+#     compiler. (fixed with explicit modules)
+#     - Differentiation
+#     - swiftCxx
 
-# TODO(compnerd) once we have a newer CMake we should be able to use the new
-# `Swift` LANGUAGE support in CMake to simplify the build.  For now, just add
-# the project so that it is possible to start working on extracting the Swift
-# standard library from the Swift compiler build.
-project(swift-stdlib LANGUAGES C CXX)
+cmake_minimum_required(VERSION 3.26...3.29)
 
-# CMake passes `-external:I` to clang-cl which results in the search order being
-# altered, and this impacts the definitions of the intrinsics. When building
-# with a MSVC toolset 19.29.30036.3 or newer, this will prevent the runtime from
-# being built on Windows.  Since we know that we only support `clang-cl` as the
-# compiler for the runtime due to the use of the Swift calling convention, we
-# simply override the CMake behaviour unconditionally.
-set(CMAKE_INCLUDE_SYSTEM_FLAG_C "-Isystem")
-set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-Isystem")
+set(CMAKE_Swift_LANGUAGE_VERSION 5)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules/CMakeWorkarounds.cmake)
+project(SwiftStdlib LANGUAGES Swift C CXX VERSION 6.1)
 
-# Add path for custom CMake modules.
-list(APPEND CMAKE_MODULE_PATH
-  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
-
-if(SWIFT_BUILD_SDK_OVERLAY OR SWIFT_INCLUDE_TESTS)
-  set(SWIFT_BUILD_TEST_SUPPORT_MODULES_default TRUE)
-else()
-  set(SWIFT_BUILD_TEST_SUPPORT_MODULES_default FALSE)
+# Ensure we're standalone for now so that we're not pulling in any LLVM
+# dependencies. We can drop this requirement once we're certain that things are
+# working correctly without any unexpected dependencies.
+if(NOT "${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
+  message(FATAL_ERROR "Swift stdlib must built as a standalone project")
 endif()
 
-# TODO(compnerd) use a target to avoid re-creating this file all the time
-function(generate_windows_vfs_overlay)
-  file(TO_CMAKE_PATH ${VCToolsInstallDir} VCToolsInstallDir)
-  file(TO_CMAKE_PATH ${UniversalCRTSdkDir} UniversalCRTSdkDir)
-  configure_file("${PROJECT_SOURCE_DIR}/cmake/WindowsVFS.yaml.in"
-                 "${CMAKE_CURRENT_BINARY_DIR}/windows-vfs-overlay.yaml"
-                 @ONLY)
-endfunction()
-if(WINDOWS IN_LIST SWIFT_SDKS)
-  generate_windows_vfs_overlay()
-  file(TO_CMAKE_PATH "${CMAKE_CURRENT_BINARY_DIR}/windows-vfs-overlay.yaml"
-       SWIFT_WINDOWS_VFS_OVERLAY)
-endif()
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${SwiftStdlib_BINARY_DIR}/lib")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${SwiftStdlib_BINARY_DIR}/bin")
 
-#
-# User-configurable options for the standard library.
-#
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules")
 
-# New options should be added to stdlib/cmake/modules/StdlibOptions.cmake,
-# so that they are considered in configurations using StandaloneOverlay.cmake
+include(GNUInstallDirs)
+include(CompilerChecks)
+include(gyb)
+include(PlatformInfo)
+include(AvailabilityMacros)
+include(EmitSwiftInterface)
 
-# NOTE: Some of these variables are also initialized in StandaloneOverlay.cmake
-# so that interfaces are emitted when overlays are separately built.
+option(SwiftStdlib_ENABLE_TESTING "Enable Swift stdlib testing targets" OFF)
 
-# TODO: migrate this section to StdlibOptions.cmake to reduce duplication
+option(SwiftStdlib_ENABLE_CRASH_REPORTER_CLIENT "" OFF)
 
-option(SWIFT_BUILD_TEST_SUPPORT_MODULES
-       "Whether to build StdlibUnittest and other test support modules. Defaults to On when SWIFT_BUILD_SDK_OVERLAY is On, or when SWIFT_INCLUDE_TESTS is On."
-       "${SWIFT_BUILD_TEST_SUPPORT_MODULES_default}")
+option(SwiftStdlib_ENABLE_OBJC_INTEROP "" OFF)
 
-# New options should be added to stdlib/cmake/modules/StdlibOptions.cmake,
-# so that they are considered in configurations using StandaloneOverlay.cmake
-include(StdlibOptions)
+option(SwiftStdlib_ENABLE_TYPE_PRINTING "" OFF)
 
-#
-# End of user-configurable options.
-#
+option(SwiftStdlib_ENABLE_EMBEDDED "Include Embedded stdlib targets" OFF)
 
-set(SWIFT_STDLIB_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+option(SwiftStdlib_ENABLE_LEAK_CHECKER "" OFF)
 
-# Remove llvm-project/llvm/include directory from -I search part when building
-# the stdlib. We have our own fork of LLVM includes (Support, ADT) in
-# stdlib/include/llvm and we don't want to silently use headers from LLVM.
-get_property(stdlib_include_directories DIRECTORY PROPERTY INCLUDE_DIRECTORIES)
-list(REMOVE_ITEM stdlib_include_directories "${LLVM_MAIN_INCLUDE_DIR}")
-set_property(DIRECTORY PROPERTY INCLUDE_DIRECTORIES ${stdlib_include_directories})
+option(SwiftStdlib_CLOBBER_FREED_OBJECT "" OFF)
 
-include(AddSwiftStdlib)
+option(SwiftStdlib_ENABLE_ASYNC_FP "Emit asynchronous framepointer support in swiftConcurrency" OFF)
 
-# Create convenience targets for the Swift standard library.
+option(SwiftStdlib_ENABLE_EXTRA_CHECKS "Enable extra checking in the stdlib" OFF)
 
-# NOTE(compnerd) this will pass the *build* configuration to the *host*
-# libraries.  Explicitly indicate to CMake that it should **NOT** track the
-# implicit language runtimes.  This can go away once we migrate to an external
-# project with its own configure with the CMAKE_SYSTEM_NAME set rather than
-# using the custom cross-compilation solution
-set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "")
-set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
+option(SwiftStdlib_ENABLE_VECTOR_TYPES "Include vector types in built stdlib" ON)
 
-set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "")
-set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
+option(SwiftStdlib_ENABLE_COMMANDLINE_SUPPORT "Enable swift CommandLine support" OFF)
 
-set(CMAKE_C_VISIBILITY_PRESET hidden)
-set(CMAKE_CXX_VISIBILITY_PRESET hidden)
-set(CMAKE_VISIBILITY_INLINES_HIDDEN YES)
-
-if(SWIFT_BUILD_RUNTIME_WITH_HOST_COMPILER)
-  if(NOT "${CMAKE_C_COMPILER_ID}" MATCHES "Clang")
-    message(FATAL_ERROR "Building the swift runtime is not supported with ${CMAKE_C_COMPILER_ID}. Use the just-built clang instead.")
+option(SwiftStdlib_ENABLE_PRESPECIALIZATION "Enable generic metadata prespecialization" OFF)
+if(SwiftStdlib_ENABLE_PRESPECIALIZATION)
+  check_compiler_flag(Swift "-Xfrontend -prespecialize-generic-metadata" HAVE_PRESPECIALIZE_GENERIC_METADATA)
+  if(NOT HAVE_PRESPECIALIZE_GENERIC_METADATA)
+    message(WARNING "Generic metadata prespecialization not supported by Swift compiler")
   else()
-    message(WARNING "Building the swift runtime using the host compiler, and not the just-built clang.")
-  endif()
-else()
-  # If we use Clang-cl or MSVC, CMake provides default compiler and linker flags that are incompatible
-  # with the frontend of Clang or Clang++.
-  if(SWIFT_COMPILER_IS_MSVC_LIKE)
-    set(CMAKE_CXX_COMPILER "${SWIFT_NATIVE_CLANG_TOOLS_PATH}/clang-cl")
-    set(CMAKE_C_COMPILER "${SWIFT_NATIVE_CLANG_TOOLS_PATH}/clang-cl")
-  else()
-    set(CMAKE_CXX_COMPILER "${SWIFT_NATIVE_CLANG_TOOLS_PATH}/clang++")
-    set(CMAKE_C_COMPILER "${SWIFT_NATIVE_CLANG_TOOLS_PATH}/clang")
-  endif()
-
-  if(CMAKE_C_COMPILER_LAUNCHER MATCHES ".*distcc")
-    set(CMAKE_C_COMPILER_LAUNCHER "")
-  endif()
-  if(CMAKE_CXX_COMPILER_LAUNCHER MATCHES ".*distcc")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "")
-  endif()
-
-  # The sanitizers require using the same version of the compiler for
-  # everything and there are various places where we link runtime code with
-  # code built by the host compiler. Disable sanitizers for the runtime for
-  # now.
-  add_compile_options(-fno-sanitize=all)
-endif()
-
-# Do not enforce checks for LLVM's ABI-breaking build settings.
-# The Swift runtime uses some header-only code from LLVM's ADT classes,
-# but we do not want to link libSupport into the runtime. These checks rely
-# on the presence of symbols in libSupport to identify how the code was
-# built and cause link failures for mismatches. Without linking that library,
-# we get link failures regardless, so instead, this just disables the checks.
-add_compile_definitions($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING=1>)
-
-set(SWIFT_STDLIB_LIBRARY_BUILD_TYPES)
-if(SWIFT_BUILD_DYNAMIC_STDLIB)
-  list(APPEND SWIFT_STDLIB_LIBRARY_BUILD_TYPES SHARED)
-endif()
-if(SWIFT_BUILD_STATIC_STDLIB)
-  list_intersect("${SWIFT_DARWIN_PLATFORMS}" "${SWIFT_SDKS}" building_darwin_sdks)
-  if(building_darwin_sdks)
-    message(SEND_ERROR "cannot build static standard library for Darwin SDKs")
-  else()
-    list(APPEND SWIFT_STDLIB_LIBRARY_BUILD_TYPES STATIC)
+    add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-Xfrontend$<SEMICOLON>-prespecialize-generic-metadata>)
   endif()
 endif()
 
-function(swift_create_stdlib_targets name variant define_all_alias)
-  if(NOT variant STREQUAL "")
-    set(variant "-${variant}")
-  endif()
-
-  if(define_all_alias)
-    add_custom_target(${name}${variant}-all)
-    set_target_properties(${name}${variant}-all
-      PROPERTIES
-      FOLDER "Swift libraries/Aggregate")
-  endif()
-
-  foreach(sdk ${SWIFT_SDKS})
-    add_custom_target(${name}-${SWIFT_SDK_${sdk}_LIB_SUBDIR}${variant})
-    set_target_properties(${name}-${SWIFT_SDK_${sdk}_LIB_SUBDIR}${variant}
-      PROPERTIES
-      FOLDER "Swift libraries/Aggregate")
-
-    foreach(arch ${SWIFT_SDK_${sdk}_ARCHITECTURES})
-      set(target_variant -${SWIFT_SDK_${sdk}_LIB_SUBDIR}-${arch})
-
-      add_custom_target(${name}${target_variant}${variant})
-      set_target_properties(${name}${target_variant}${variant}
-        PROPERTIES
-        FOLDER "Swift libraries/Aggregate")
-      if(define_all_alias)
-        add_dependencies(${name}${variant}-all
-          ${name}${target_variant}${variant})
-      endif()
-      add_dependencies(${name}-${SWIFT_SDK_${sdk}_LIB_SUBDIR}${variant}
-        ${name}${target_variant}${variant})
-    endforeach()
-  endforeach()
-
-  if(NOT define_all_alias)
-    set(ALL_keyword ALL)
-  endif()
-
-  # When cross-compiling host tools for multiple architectures, targeting a
-  # different SDK, the primary variant is not one of the variants being built,
-  # so it can't be added as a target here. build-script will invoke the
-  # more-specific target, so just skip creating this target and warn in case
-  # someone is using the CMake more directly.
-  if(SWIFT_PRIMARY_VARIANT_SDK IN_LIST SWIFT_SDKS)
-    add_custom_target(${name}${variant}
-      ${ALL_keyword}
-      DEPENDS
-      ${name}${SWIFT_PRIMARY_VARIANT_SUFFIX}${variant})
-    set_target_properties(${name}${variant}
-      PROPERTIES
-      FOLDER "Swift libraries/Aggregate")
-  else()
-    message(WARNING "Primary variant ${SWIFT_PRIMARY_VARIANT_SDK} is not being built, not creating ${name}${variant} alias target for it.")
-  endif()
-endfunction()
-
-if("${SWIFT_CONCURRENCY_GLOBAL_EXECUTOR}" STREQUAL "singlethreaded"
-   AND NOT SWIFT_STDLIB_SINGLE_THREADED_CONCURRENCY)
-  message(SEND_ERROR "Cannot enable the single-threaded global executor without enabling SWIFT_STDLIB_SINGLE_THREADED_CONCURRENCY")
+option(SwiftStdlib_ENABLE_LIBRARY_EVOLUTION "Enable library evolution" OFF)
+if(SwiftStdlib_ENABLE_LIBRARY_EVOLUTION)
+  add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>)
+  add_definitions(-DSWIFT_LIBRARY_EVOLUTION)
 endif()
 
-if(SWIFT_STDLIB_TASK_TO_THREAD_MODEL_CONCURRENCY)
-  if(SWIFT_STDLIB_SINGLE_THREADED_CONCURRENCY)
-    message(SEND_ERROR "Cannot use the single-threaded concurrency with task-to-thread concurrency model")
-  endif()
-  if(NOT "${SWIFT_CONCURRENCY_GLOBAL_EXECUTOR}" STREQUAL "none")
-    message(SEND_ERROR "Task-to-thread concurrency model requires no global executor")
-  endif()
-else()
-  if("${SWIFT_CONCURRENCY_GLOBAL_EXECUTOR}" STREQUAL "none")
-    message(SEND_ERROR "Only task-to-thread concurrency model is usable with no global executor")
-  endif()
-endif()
+option(SwiftStdlib_ENABLE_EXTRA_SOURCES "Enable non-essential sources in swiftCore" ON)
 
-swift_create_stdlib_targets("swift-stdlib" "" TRUE)
-if(SWIFT_STDLIB_ENABLE_SIB_TARGETS)
-  swift_create_stdlib_targets("swift-stdlib" "sib" TRUE)
-  swift_create_stdlib_targets("swift-stdlib" "sibopt" TRUE)
-  swift_create_stdlib_targets("swift-stdlib" "sibgen" TRUE)
-endif()
-swift_create_stdlib_targets("swift-test-stdlib" "" FALSE)
+option(SwiftStdlib_ENABLE_REFLECTION "Enable Mirror in swiftCore" ON)
 
-# Create the libexec targets
-swift_create_stdlib_targets("swift-libexec" "" TRUE)
-swift_create_stdlib_targets("swift-test-libexec" "" FALSE)
+# TODO: Finish CXX interop support and turn this back on
+option(SwiftStdlib_ENABLE_CXX_INTEROP "Include CXX interop library targets" OFF)
 
-# Check whether the Swift compiler we're using supports
-# -disable-implicit-backtracing-module-import
-include(SwiftCompilerCapability)
+option(SwiftStdlib_ENABLE_CONCURRENCY "Enable swift concurrency build targets" ON)
 
-swift_supports_implicit_module("backtracing" SWIFT_COMPILER_SUPPORTS_BACKTRACING)
+option(SwiftStdlib_ENABLE_DIFFERENTIATION "Include differentiation build target" OFF)
 
-# FIXME: Include the toolchain directory before the public directory. Otherwise
-# the clang resource directory symlink stops installing correctly.
-add_subdirectory(toolchain)
+#TODO: Shims are conflicting with the copy in the SDK and resulting in a build
+#      failure
+option(SwiftStdlib_ENABLE_DISTRIBUTED "Include swiftDistributed build targets" OFF)
+
+option(SwiftStdlib_ENABLE_OBSERVATION "Include swiftObservation build targets" ON)
+
+option(SwiftStdlib_ENABLE_BACKTRACING "Include Swift backtracing build targets" OFF)
+
+option(SwiftStdlib_ENABLE_STRINGPROCESSING "Include Swift StringProcessing build targets" OFF)
+
+#TODO: Finish hooking up synchronization and turn this back on
+option(SwiftStdlib_ENABLE_SYNCHRONIZATION "Include Swift synchronization build targets" OFF)
+
+# The old driver is unable to reliably produce the index store correctly resulting in failed builds.
+# Enable this if you're using the Swift-Swift-Driver and want improved LSP support.
+option(SwiftStdlib_ENABLE_INDEX_STORE "Enable generating the index store for improved LSP functionality" OFF)
+
+# Configure the platform overlay
+# If the platform vends an overlay, use that overlay. If you are the owner of
+# the platform vending the overlay or the platform does not vend an overlay,
+# then you should build the platform overlay.
+set(SwiftStdlib_PLATFORM_OVERLAY "Darwin" CACHE STRING "Platform overlay module name. Options are: Darwin glibc musl wasi")
+option(SwiftStdlib_BUILD_PLATFORM_OVERLAY "Include platform overlay build target in build graph." OFF)
+
+# FIXME: We should not be pulling in the ../include directory here!
+#        It is necessary because we are a menace to ourselves and society and
+#        decided mixing the two was a good idea. We need to figure out how we
+#        want to vend the headers that are used by both the stdlib/runtime and
+#        compiler for ABI purposes. Everything else should just be split because
+#        they end up in different places.
+include_directories(include "${CMAKE_SOURCE_DIR}/../include")
+
+add_compile_options($<$<COMPILE_LANGUAGE:Swift>:-explicit-module-build>
+                    $<$<COMPILE_LANGUAGE:Swift>:-nostdimport>
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -enforce-exclusivity=unchecked>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -target-min-inlining-version -Xfrontend min>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -enable-ossa-modules>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -enable-lexical-lifetimes=false>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-implicit-concurrency-module-import>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-implicit-string-processing-module-import>"
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-implicit-backtracing-module-import>"
+                    $<$<COMPILE_LANGUAGE:Swift>:-save-optimization-record=bitstream>
+                    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -target-min-inlining-version -Xfrontend min>"
+                    $<$<COMPILE_LANGUAGE:Swift>:-runtime-compatibility-version$<SEMICOLON>none>)
+
 add_subdirectory(public)
-if(SWIFT_STDLIB_BUILD_PRIVATE)
-  add_subdirectory(private)
-endif()
-add_subdirectory(tools)
+add_subdirectory(private)

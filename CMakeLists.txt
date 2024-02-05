@@ -1455,38 +1455,57 @@ endif()
 #
 # https://github.com/apple/swift/issues/48534
 if(SWIFT_BUILD_STDLIB)
-  add_subdirectory(stdlib)
-else()
-  set(SWIFT_STDLIB_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/stdlib")
-  # Some of the things below depend on the threading library
-  add_subdirectory(stdlib/public/Threading)
+  include(ExternalProject)
+  # TODO: We shouldn't need to copy this during the build. The build interface
+  #       should work. We should install it to the clang importer resource dir
+  #       during the installation though.
+  get_target_property(CLANG_IMPORT_HEADERS clang-resource-headers INTERFACE_INCLUDE_DIRECTORIES)
+  message(STATUS "Clang resource dir: ${CLANG_IMPORT_HEADERS}")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                  "${CLANG_IMPORT_HEADERS}"
+                  "${CMAKE_BINARY_DIR}/lib/swift/clang/include")
 
-  if(SWIFT_BUILD_STDLIB_EXTRA_TOOLCHAIN_CONTENT)
-    add_subdirectory(stdlib/toolchain)
+  # Generates a separate Swift stdlib/Runtime build for each of the architectures
+  # in each of the SDKs
+  # TODO: This should be hooked up differently to make the stdlib builds more
+  #       configurable (See LLVM Runtime build). This is just stitching the
+  #       build back together so things start running again.
+  foreach(sdk ${SWIFT_SDKS})
+    foreach(arch ${SWIFT_SDK_${sdk}_ARCHITECTURES})
+      set(stdlib_target "swift-stdlib-${SWIFT_SDK_${sdk}_LIB_SUBDIR}-${arch}")
+      get_target_triple(target_triple target_variant_triple ${sdk} ${arch}
+        DEPLOYMENT_VERSION ${SWIFT_SDK_${sdk}_DEPLOYMENT_VERSION})
+      # TODO: The toolchain contents should be split from the stdlib
+      #       We need to install the legacy layouts before trying to build the
+      #       stdlib or Swift will crash in IRGen.
 
-    if(SWIFT_BUILD_STDLIB_CXX_MODULE)
-      add_subdirectory(stdlib/public/Cxx)
-    endif()
-  endif()
 
-  # Some tools (e.g. swift-reflection-dump) rely on a host swiftRemoteInspection,
-  # so ensure we build that when building tools.
-  if(SWIFT_INCLUDE_TOOLS OR SWIFT_BUILD_STDLIB_CXX_MODULE)
-    add_subdirectory(stdlib/public/SwiftShims/swift/shims)
-  endif()
-
-  # We might want to build Remote Mirror separately
-  if(SWIFT_BUILD_REMOTE_MIRROR)
-    add_subdirectory(stdlib/public/LLVMSupport)
-    add_subdirectory(stdlib/public/Demangling)
-    add_subdirectory(stdlib/public/RemoteInspection)
-    add_subdirectory(stdlib/public/SwiftRemoteMirror)
-  endif()
-
-  # We might also want to build the things in libexec seaprately
-  if(SWIFT_BUILD_LIBEXEC)
-    add_subdirectory(stdlib/public/libexec)
-  endif()
+      # TODO: The install prefix and install directories are incorrect and will
+      #       result in incorrect rpath/install names. It's not worse than
+      #       before, it's just always been broken.
+      ExternalProject_Add("${stdlib_target}"
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/stdlib"
+        INSTALL_DIR "${CMAKE_BINARY_DIR}/usr"
+        CMAKE_ARGS
+          -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+          -DCMAKE_INSTALL_PREFIX:FILEPATH=<INSTALL_DIR>
+          # TODO: The frontend we just built may or may not have been cross
+          #       compiled. If it is, we won't be able to use it to build the
+          #       stdlib.
+          # TODO: Bootstrapping compiler integration here?
+          -DCMAKE_Swift_COMPILER:FILEPATH=$<IF:$<BOOL:${CMAKE_CROSSCOMPILING}>,${CMAKE_Swift_COMPILER},$<PATH:REPLACE_FILENAME,$<TARGET_FILE:swift-frontend>,swiftc>>
+          -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
+          -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
+          -DBUILD_SHARED_LIBS:BOOL=YES
+          # TODO: hook this up correctly -- The toolchain build should be able
+          #       to set all of this up for us.
+          -C "${CMAKE_CURRENT_SOURCE_DIR}/stdlib/cmake/caches/Platforms/Apple/${SWIFT_SDK_${sdk}_ARCH_${arch}_TRIPLE}.cmake"
+          -C "${CMAKE_CURRENT_SOURCE_DIR}/stdlib/cmake/caches/sccache.cmake")
+      if(NOT ${CMAKE_CROSSCOMPILING})
+        add_dependencies("${stdlib_target}" swift-frontend)
+      endif()
+    endforeach()
+  endforeach()
 endif()
 
 if(SWIFT_INCLUDE_APINOTES)

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Swift
+import SwiftShims
 
 #if canImport(Darwin)
 import Darwin

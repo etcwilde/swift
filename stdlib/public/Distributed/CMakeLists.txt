@@ -2,7 +2,7 @@
 #
 # This source file is part of the Swift.org open source project
 #
-# Copyright (c) 2019 - 2022 Apple Inc. and the Swift project authors
+# Copyright (c) 2019 - 2024 Apple Inc. and the Swift project authors
 # Licensed under Apache License v2.0 with Runtime Library Exception
 #
 # See https://swift.org/LICENSE.txt for license information
@@ -10,17 +10,7 @@
 #
 #===----------------------------------------------------------------------===#
 
-if(SWIFT_BUILD_SDK_OVERLAY)
-set(swift_distributed_darwin_dependencies Darwin)
-else()
-set(swift_distributed_darwin_dependencies)
-endif()
-
-set(swift_distributed_link_libraries
-  swiftCore)
-
-
-add_swift_target_library(swiftDistributed ${SWIFT_STDLIB_LIBRARY_BUILD_TYPES} IS_STDLIB
+add_library(swiftDistributed
   DistributedActor.cpp
   DistributedActor.swift
   DistributedActorSystem.swift
@@ -28,33 +18,18 @@ add_swift_target_library(swiftDistributed ${SWIFT_STDLIB_LIBRARY_BUILD_TYPES} IS
   DistributedDefaultExecutor.swift
   DistributedMacros.swift
   DistributedMetadata.swift
-  LocalTestingDistributedActorSystem.swift
+  LocalTestingDistributedActorSystem.swift)
+target_link_libraries(swiftDistributed PRIVATE swiftCore swift_Concurrency swiftShims)
+target_compile_options(swiftDistributed PRIVATE
+  $<$<COMPILE_LANGUAGE:Swift>:-parse-stdlib>
+  $<$<COMPILE_LANGUAGE:Swift>:-nostdimport>)
+set_target_properties(swiftDistributed PROPERTIES Swift_MODULE_NAME Distributed)
+install(TARGETS swiftDistributed)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Distributed.swiftmodule"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/swift/Distributed.swiftmodule"
+  RENAME "${SwiftStdlib_MODULE_TRIPLE}.swiftmodule")
 
-  SWIFT_MODULE_DEPENDS_IOS ${swift_distributed_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_OSX ${swift_distributed_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_TVOS ${swift_distributed_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_WATCHOS ${swift_distributed_darwin_dependencies}
-  SWIFT_MODULE_DEPENDS_ANDROID Android
-  SWIFT_MODULE_DEPENDS_LINUX Glibc
-  SWIFT_MODULE_DEPENDS_FREEBSD Glibc
-  SWIFT_MODULE_DEPENDS_OPENBSD Glibc
-  SWIFT_MODULE_DEPENDS_CYGWIN Glibc
-  SWIFT_MODULE_DEPENDS_HAIKU Glibc
-  SWIFT_MODULE_DEPENDS_WINDOWS CRT WinSDK
-
-  LINK_LIBRARIES ${swift_distributed_link_libraries}
-
-  C_COMPILE_FLAGS
-    -DswiftDistributed_EXPORTS
-    -I${SWIFT_SOURCE_DIR}/stdlib/include
-
-  SWIFT_COMPILE_FLAGS
-    ${SWIFT_STANDARD_LIBRARY_SWIFT_FLAGS}
-    -parse-stdlib
-
-  LINK_FLAGS
-    "${SWIFT_RUNTIME_SWIFT_LINK_FLAGS}"
-
-  SWIFT_MODULE_DEPENDS _Concurrency
-  INSTALL_IN_COMPONENT stdlib
-)
+if(SwiftStdlib_ENABLE_LIBRARY_EVOLUTION)
+  emit_swift_interface(swiftDistributed)
+  install_swift_interface(swiftDistributed)
+endif()
