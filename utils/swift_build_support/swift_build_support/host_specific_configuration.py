@@ -141,17 +141,7 @@ class HostSpecificConfiguration(object):
                 #
                 # NOTE: We currently do not separate testing options for
                 # stage1/stage2 compiler. This can change with time.
-                if stage_dependent_args.build_swift_stdlib_unittest_extra or \
-                        args.validation_test or args.long_test or \
-                        args.stress_test:
-                    self.swift_stdlib_build_targets.append(
-                        "swift-stdlib-" + name)
-                else:
-                    self.swift_stdlib_build_targets.append(
-                        "swift-test-stdlib-" + name)
-            if build_libexec:
-                self.swift_libexec_build_targets.append(
-                    'swift-libexec-' + name)
+                self.swift_stdlib_build_targets.append(f"swift-stdlib-{name}")
             if build_benchmarks:
                 self.swift_benchmark_build_targets.append(
                     "swift-benchmark-" + name)

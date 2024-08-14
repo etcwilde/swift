@@ -18,6 +18,7 @@
 # Note: This script will NOT auto-clean before building.
 #
 
+PS4='${BASH_SOURCE}:${LINENO}:'
 set -o pipefail
 set -e
 
