@@ -9,7 +9,12 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 endif()
 include(CompilerSettings)
 
+option(SwiftCore_ENABLE_CRASH_REPORTER_CLIENT "Enable Apple CrashReporter integration" OFF)
+option(SwiftCore_ENABLE_OBJC_INTEROP "Enable runtime ObjC interop" OFF)
+option(SwiftCore_ENABLE_TYPE_PRINTING "Enable printing type names" OFF)
+
 include_directories(include)
 
 add_subdirectory(LLVMSupport)
 add_subdirectory(SwiftShims/swift/shims)
+add_subdirectory(Demangling)
