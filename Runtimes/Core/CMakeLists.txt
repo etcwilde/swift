@@ -12,7 +12,12 @@
 #
 #
 # gyb pulls sources from compiler sources
-
+#
+# Stubs:
+#   Pulls in headers from compiler
+#     - include/swift/Basic
+#     - include/swift/Runtime
+#     - include/swift/Threading
 
 # TODO:
 # Platform support:
@@ -36,6 +41,8 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 endif()
 include(CompilerSettings)
 include(DefaultSettings)
+include(PlatformInfo)
+include(gyb)
 
 option(SwiftCore_ENABLE_CRASH_REPORTER_CLIENT "Enable Apple CrashReporter integration" OFF)
 option(SwiftCore_ENABLE_OBJC_INTEROP "Enable runtime ObjC interop" OFF)
@@ -62,3 +69,4 @@ add_subdirectory(SwiftShims/swift/shims)
 add_subdirectory(Demangling)
 add_subdirectory(Threading)
 add_subdirectory(runtime)
+add_subdirectory(stubs)
