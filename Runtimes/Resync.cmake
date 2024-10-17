@@ -62,7 +62,8 @@ set(CoreLibs
   runtime
   CompatibilityOverride
   stubs
-  core)
+  core
+  SwiftOnoneSupport)
 
   # Add these as we get them building
   # core
