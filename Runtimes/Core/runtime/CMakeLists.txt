@@ -67,6 +67,11 @@ add_library(swiftRuntime OBJECT
     AccessibleFunction.cpp
     Win32.cpp)
 
+if(SwiftCore_ENABLE_RUNTIME_LEAK_CHECKER)
+  target_sources(swiftRuntime PRIVATE
+    Leaks.mm)
+endif()
+
 # TODO: Probably worth considering putting half of these in a RuntimeConfig.h.in
 #       file rather than pushing them through macro flags.
 target_compile_definitions(swiftRuntime
@@ -75,6 +80,7 @@ target_compile_definitions(swiftRuntime
     -DSWIFT_TARGET_LIBRARY_NAME=swiftRuntime
     -DswiftCore_EXPORTS
     $<$<BOOL:${SwiftCore_ENABLE_REFLECTION}>:-DSWIFT_ENABLE_REFLECTION>
+    -DSWIFT_LIBRARY_EVOLUTION=$<BOOL:${SwiftCore_ENABLE_LIBRARY_EVOLUTION}>
     $<$<BOOL:${SwiftCore_BACKTRACER_PATH}>:-DSWIFT_RUNTIME_FIXED_BACKTRACER_PATH="${SwiftCore_BACKTRACER_PATH}">
     -DSWIFT_ENABLE_BACKTRACING=$<BOOL:${SwiftCore_ENABLE_BACKTRACING}>
     $<$<BOOL:${SwiftCore_ENABLE_CRASH_REPORTER_CLIENT}>:-DSWIFT_HAVE_CRASHREPORTERCLIENT>)
