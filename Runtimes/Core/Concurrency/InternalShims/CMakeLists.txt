@@ -1,0 +1,2 @@
+add_library(SwiftConcurrencyInternalShims INTERFACE)
+target_include_directories(SwiftConcurrencyInternalShims INTERFACE .)

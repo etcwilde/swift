@@ -63,7 +63,8 @@ set(CoreLibs
   CompatibilityOverride
   stubs
   core
-  SwiftOnoneSupport)
+  SwiftOnoneSupport
+  Concurrency)
 
   # Add these as we get them building
   # core
