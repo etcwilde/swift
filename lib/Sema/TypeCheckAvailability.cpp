@@ -689,14 +689,13 @@ private:
       return nullptr;
 
     // Declarations with an explicit availability attribute always get a TRC.
-    if (hasActiveAvailableAttribute(D, Context)) {
-      AvailabilityRange DeclaredAvailability =
-          swift::AvailabilityInference::availableRange(D, Context);
-
+    AvailabilityRange DeclaredAvailability =
+        swift::AvailabilityInference::availableRange(D);
+    if (!DeclaredAvailability.isAlwaysAvailable()) {
       return TypeRefinementContext::createForDecl(
           Context, D, getCurrentTRC(),
           getEffectiveAvailabilityForDeclSignature(D, DeclaredAvailability),
-          DeclaredAvailability, refinementSourceRangeForDecl(D));
+          refinementSourceRangeForDecl(D));
     }
 
     // Declarations without explicit availability get a TRC if they are
@@ -783,10 +782,12 @@ private:
     // it.
     assert(D->getSourceRange().isValid());
 
+    auto &Context = D->getASTContext();
+    SourceRange Range;
     if (auto *storageDecl = dyn_cast<AbstractStorageDecl>(D)) {
       // Use the declaration's availability for the context when checking
       // the bodies of its accessors.
-      SourceRange Range = storageDecl->getSourceRange();
+      Range = storageDecl->getSourceRange();
 
       // HACK: For synthesized trivial accessors we may have not a valid
       // location for the end of the braces, so in that case we will fall back
@@ -798,11 +799,12 @@ private:
       if (BracesRange.isValid()) {
         Range.widen(BracesRange);
       }
-
-      return Range;
+    } else {
+      Range = D->getSourceRangeIncludingAttrs();
     }
 
-    return D->getSourceRangeIncludingAttrs();
+    Range.End = Lexer::getLocForEndOfToken(Context.SourceMgr, Range.End);
+    return Range;
   }
 
   // Creates an implicit decl TRC specifying the deployment
@@ -828,7 +830,7 @@ private:
       if (auto bodyStmt = tlcd->getBody()) {
         pushDeclBodyContext(
             tlcd, {{bodyStmt, createImplicitDeclContextForDeploymentTarget(
-                                  tlcd, tlcd->getSourceRange())}});
+                                  tlcd, refinementSourceRangeForDecl(tlcd))}});
       }
       return;
     }
@@ -1096,8 +1098,6 @@ private:
     for (StmtConditionElement Element : Cond) {
       TypeRefinementContext *CurrentTRC = getCurrentTRC();
       AvailabilityRange CurrentInfo = CurrentTRC->getAvailabilityInfo();
-      AvailabilityRange CurrentExplicitInfo =
-          CurrentTRC->getExplicitAvailabilityInfo();
 
       // If the element is not a condition, walk it in the current TRC.
       if (Element.getKind() != StmtConditionElement::CK_Availability) {
@@ -1178,7 +1178,8 @@ private:
       // current TRC is completely contained in the range for the spec, then
       // a version query can never be false, so the spec is useless.
       // If so, report this.
-      if (CurrentExplicitInfo.isContainedIn(NewConstraint)) {
+      auto ExplicitRange = CurrentTRC->getExplicitAvailabilityRange();
+      if (ExplicitRange && ExplicitRange->isContainedIn(NewConstraint)) {
         // Unavailability refinements are always "useless" from a symbol
         // availability point of view, so only useless availability specs are
         // reported.
@@ -1384,8 +1385,7 @@ TypeChecker::getOrBuildTypeRefinementContext(SourceFile *SF) {
   return TRC;
 }
 
-std::vector<TypeRefinementContext *>
-ExpandChildTypeRefinementContextsRequest::evaluate(
+evaluator::SideEffect ExpandChildTypeRefinementContextsRequest::evaluate(
     Evaluator &evaluator, TypeRefinementContext *parentTRC) const {
   assert(parentTRC->getNeedsExpansion());
   if (auto decl = parentTRC->getDeclOrNull()) {
@@ -1394,7 +1394,7 @@ ExpandChildTypeRefinementContextsRequest::evaluate(
     builder.prepareDeclForLazyExpansion(decl);
     builder.build(decl);
   }
-  return parentTRC->Children;
+  return evaluator::SideEffect();
 }
 
 AvailabilityRange TypeChecker::overApproximateAvailabilityAtLocation(
@@ -1434,7 +1434,7 @@ AvailabilityRange TypeChecker::overApproximateAvailabilityAtLocation(
     loc = D->getLoc();
 
     std::optional<AvailabilityRange> Info =
-        AvailabilityInference::annotatedAvailableRange(D, Context);
+        AvailabilityInference::annotatedAvailableRange(D);
 
     if (Info.has_value()) {
       OverApproximateContext.constrainWith(Info.value());
@@ -1475,7 +1475,7 @@ bool TypeChecker::isDeclarationUnavailable(
   }
 
   AvailabilityRange safeRangeUnderApprox{
-      AvailabilityInference::availableRange(D, Context)};
+      AvailabilityInference::availableRange(D)};
 
   if (safeRangeUnderApprox.isAlwaysAvailable())
     return false;
@@ -1502,8 +1502,7 @@ TypeChecker::checkDeclarationAvailability(const Decl *D,
   if (isDeclarationUnavailable(D, Where.getDeclContext(), [&Where] {
         return Where.getAvailabilityRange();
       })) {
-    auto &Context = Where.getDeclContext()->getASTContext();
-    return AvailabilityInference::availableRange(D, Context);
+    return AvailabilityInference::availableRange(D);
   }
 
   return std::nullopt;
@@ -1940,16 +1939,15 @@ static bool fixAvailabilityByNarrowingNearbyVersionCheck(
   if (!TRC)
     return false;
 
-  AvailabilityRange AvailabilityAtLoc = TRC->getExplicitAvailabilityInfo();
-  if (!AvailabilityAtLoc.isAlwaysAvailable() &&
-      !RequiredAvailability.isAlwaysAvailable() &&
+  auto ExplicitAvailability = TRC->getExplicitAvailabilityRange();
+  if (ExplicitAvailability && !RequiredAvailability.isAlwaysAvailable() &&
       TRC->getReason() != TypeRefinementContext::Reason::Root &&
-      RequiredAvailability.isContainedIn(AvailabilityAtLoc)) {
+      RequiredAvailability.isContainedIn(*ExplicitAvailability)) {
 
     // Only fix situations that are "nearby" versions, meaning
     // disagreement on a minor-or-less version (subminor-or-less version for
     // macOS 10.x.y).
-    auto RunningVers = AvailabilityAtLoc.getRawMinimumVersion();
+    auto RunningVers = ExplicitAvailability->getRawMinimumVersion();
     auto RequiredVers = RequiredAvailability.getRawMinimumVersion();
     auto Platform = targetPlatform(Context.LangOpts);
     if (RunningVers.getMajor() != RequiredVers.getMajor())
@@ -4643,7 +4641,7 @@ static bool declNeedsExplicitAvailability(const Decl *decl) {
     return false;
 
   // Warn on decls without an introduction version.
-  auto safeRangeUnderApprox = AvailabilityInference::availableRange(decl, ctx);
+  auto safeRangeUnderApprox = AvailabilityInference::availableRange(decl);
   return safeRangeUnderApprox.isAlwaysAvailable();
 }
 

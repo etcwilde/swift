@@ -1092,6 +1092,10 @@ SwiftInt BridgedInstruction::LoadInst_getLoadOwnership() const {
   return (SwiftInt)getAs<swift::LoadInst>()->getOwnershipQualifier();
 }
 
+bool BridgedInstruction::LoadBorrowInst_isUnchecked() const {
+  return (SwiftInt)getAs<swift::LoadBorrowInst>()->isUnchecked();
+}
+
 BridgedInstruction::BuiltinValueKind BridgedInstruction::BuiltinInst_getID() const {
   return (BuiltinValueKind)getAs<swift::BuiltinInst>()->getBuiltinInfo().ID;
 }
@@ -1711,6 +1715,14 @@ BridgedType BridgedVTable::getSpecializedClassType() const {
   return {vTable->getClassType()};
 }
 
+void BridgedVTable::replaceEntries(BridgedArrayRef bridgedEntries) const {
+  llvm::SmallVector<swift::SILVTableEntry, 8> entries;
+  for (const BridgedVTableEntry &e : bridgedEntries.unbridged<BridgedVTableEntry>()) {
+    entries.push_back(e.unbridged());
+  }
+  vTable->replaceEntries(entries);
+}
+
 //===----------------------------------------------------------------------===//
 //               BridgedWitnessTable, BridgedDefaultWitnessTable
 //===----------------------------------------------------------------------===//
@@ -1942,8 +1954,14 @@ BridgedInstruction BridgedBuilder::createCopyValue(BridgedValue op) const {
   return {unbridged().createCopyValue(regularLoc(), op.getSILValue())};
 }
 
-BridgedInstruction BridgedBuilder::createBeginBorrow(BridgedValue op) const {
-  return {unbridged().createBeginBorrow(regularLoc(), op.getSILValue())};
+BridgedInstruction BridgedBuilder::createBeginBorrow(BridgedValue op,
+                                                     bool isLexical,
+                                                     bool hasPointerEscape,
+                                                     bool isFromVarDecl) const {
+  return {unbridged().createBeginBorrow(regularLoc(), op.getSILValue(),
+                                        swift::IsLexical_t(isLexical),
+                                        swift::HasPointerEscape_t(hasPointerEscape),
+                                        swift::IsFromVarDecl_t(isFromVarDecl))};
 }
 
 BridgedInstruction BridgedBuilder::createBorrowedFrom(BridgedValue borrowedValue,

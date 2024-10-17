@@ -1691,7 +1691,7 @@ static bool ParseLangArgs(LangOptions &Opts, ArgList &Args,
   Opts.DisableDynamicActorIsolation |=
       Args.hasArg(OPT_disable_dynamic_actor_isolation);
 
-#if SWIFT_ENABLE_EXPERIMENTAL_PARSER_VALIDATION
+#if !defined(NDEBUG) && SWIFT_ENABLE_EXPERIMENTAL_PARSER_VALIDATION
   /// Enable round trip parsing via the new swift parser unless it is disabled
   /// explicitly. The new Swift parser can have mismatches with C++ parser -
   /// rdar://118013482 Use this flag to disable round trip through the new
@@ -2981,6 +2981,7 @@ static bool ParseIRGenArgs(IRGenOptions &Opts, ArgList &Args,
                            DiagnosticEngine &Diags,
                            const FrontendOptions &FrontendOpts,
                            const SILOptions &SILOpts,
+                           const LangOptions &LangOpts,
                            StringRef SDKPath,
                            StringRef ResourceDir,
                            const llvm::Triple &Triple) {
@@ -3472,6 +3473,8 @@ static bool ParseIRGenArgs(IRGenOptions &Opts, ArgList &Args,
     Args.hasFlag(OPT_enable_fragile_resilient_protocol_witnesses,
                  OPT_disable_fragile_resilient_protocol_witnesses,
                  Opts.UseFragileResilientProtocolWitnesses);
+  Opts.EmitYieldOnce2AsYieldOnce =
+      !LangOpts.hasFeature(Feature::CoroutineAccessorsAllocateInCallee);
   Opts.EnableHotColdSplit =
       Args.hasFlag(OPT_enable_split_cold_code,
                    OPT_disable_split_cold_code,
@@ -3694,7 +3697,7 @@ bool CompilerInvocation::parseArgs(
   }
 
   if (ParseIRGenArgs(IRGenOpts, ParsedArgs, Diags, FrontendOpts, SILOpts,
-                     getSDKPath(), SearchPathOpts.RuntimeResourcePath,
+                     LangOpts, getSDKPath(), SearchPathOpts.RuntimeResourcePath,
                      LangOpts.Target)) {
     return true;
   }
