@@ -164,6 +164,7 @@ CentOS 7       | @swift-ci Please Build Toolchain CentOS 7        | Swift Build 
 Ubuntu 18.04   | @swift-ci Please Build Toolchain Ubuntu 18.04    | Swift Build Toolchain Ubuntu 18.04 (x86_64)
 Ubuntu 20.04   | @swift-ci Please Build Toolchain Ubuntu 20.04    | Swift Build Toolchain Ubuntu 20.04 (x86_64)
 Ubuntu 22.04   | @swift-ci Please Build Toolchain Ubuntu 22.04    | Swift Build Toolchain Ubuntu 22.04 (x86_64)
+Ubuntu 24.04   | @swift-ci Please Build Toolchain Ubuntu 24.04    | Swift Build Toolchain Ubuntu 24.04 (x86_64)
 Amazon Linux 2 | @swift-ci Please Build Toolchain Amazon Linux 2  | Swift Build Toolchain Amazon Linux 2 (x86_64)
 
 ### Build and Test Stdlib against Snapshot Toolchain
