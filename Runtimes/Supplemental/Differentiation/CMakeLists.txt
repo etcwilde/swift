@@ -21,6 +21,7 @@ set(${PROJECT_NAME}_SWIFTC_SOURCE_DIR
   CACHE FILEPATH "Path to the root source directory of the Swift compiler")
 
 find_package(SwiftCore)
+find_package(math)
 
 include(gyb)
 
@@ -28,6 +29,7 @@ option(SwiftDifferentiation_ENABLE_VECTOR_TYPES "Enable vector support"
   ${SwiftCore_ENABLE_VECTOR_TYPES})
 
 add_compile_options(
+  $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>
   $<$<COMPILE_LANGUAGE:Swift>:-explicit-module-build>
   $<$<COMPILE_LANGUAGE:Swift>:-nostdlibimport>
   $<$<COMPILE_LANGUAGE:Swift>:-parse-stdlib>
@@ -64,4 +66,4 @@ set_target_properties(swift_Differentiation PROPERTIES
   Swift_MODULE_NAME _Differentiation
   Swift_COMPILATION_MODE wholemodule)
 
-  target_link_libraries(swift_Differentiation PRIVATE swiftCore)
+target_link_libraries(swift_Differentiation PRIVATE swiftCore math)
