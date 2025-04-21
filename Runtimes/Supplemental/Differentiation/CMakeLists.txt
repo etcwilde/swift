@@ -28,8 +28,11 @@ include(gyb)
 option(SwiftDifferentiation_ENABLE_VECTOR_TYPES "Enable vector support"
   ${SwiftCore_ENABLE_VECTOR_TYPES})
 
+option(SwiftDifferentiation_ENABLE_LIBRARY_EVOLUTION "Enable library evolution" 
+  ${SwiftCore_ENABLE_LIBRARY_EVOLUTION})
+
 add_compile_options(
-  $<$<COMPILE_LANGUAGE:Swift>:-enable-library-evolution>
+  $<$<AND:$<BOOL:${SwiftDifferentiation_ENABLE_LIBRARY_EVOLUTION}>,$<COMPILE_LANGUAGE:Swift>>:-enable-library-evolution>
   $<$<COMPILE_LANGUAGE:Swift>:-explicit-module-build>
   $<$<COMPILE_LANGUAGE:Swift>:-nostdlibimport>
   $<$<COMPILE_LANGUAGE:Swift>:-parse-stdlib>

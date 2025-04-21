@@ -8,7 +8,6 @@ requested.
 This module locates the Swift `_math` module, which provides standard math 
 functions to Swift code. The module looks for the `_math.swiftinterface` file 
 in the SDK and sets up an imported target for use in CMake.
-
 Imported Targets
 ^^^^^^^^^^^^^^^^
 
@@ -25,7 +24,7 @@ Hint Variables
    Apple builds always use the library provided by the SDK.
 
  ``math_STATIC``
-   Look for the libdispatch static archive instead of the dynamic library.
+   Look for the libmath static archive instead of the dynamic library.
 
 Result Variables
 ^^^^^^^^^^^^^^^^
@@ -38,7 +37,7 @@ The module may set the following variables if `math_DIR` is not set.
  ``math_INCLUDE_DIR``
    The directory containing the `_math.swiftinterface` file
 
- ``dispatch_LIBRARIES`` OR ``dispatch_IMPLIB``
+ ``math_LIBRARIES`` OR ``math_IMPLIB``
    the libraries to be linked
 
 #]=======================================================================]
@@ -57,47 +56,37 @@ if(math_DIR)
 endif()
 
 include(FindPackageHandleStandardArgs)
+include(PlatformInfo)
 
 if(APPLE)
-  # Find the SDK with which we are building.
-  execute_process(
-    COMMAND xcrun --sdk macosx --show-sdk-path
-    OUTPUT_VARIABLE _MATH_SDK
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET)
   find_path(math_INCLUDE_DIR
-    NAMES "_math.swiftmodule"
-    PATHS "${_MATH_SDK}/usr/lib/swift")
+    NAMES _math.swiftmodule
+    PATHS ${CMAKE_OSX_SYSROOT}/usr/lib/swift)
   find_path(math_IMPLIB
-    NAMES "libm.tbd"
-    PATHS "${_MATH_SDK}/usr/lib")
+    NAMES libm.tbd
+    PATHS usr/lib)
   add_library(math SHARED IMPORTED GLOBAL)
   set_target_properties(math PROPERTIES
-    IMPORTED_IMPLIB "${math_IMPLIB}"
-    INTERFACE_INCLUDE_DIRECTORIES "${math_INCLUDE_DIR}")
+    IMPORTED_IMPLIB ${math_IMPLIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${math_INCLUDE_DIR})
   find_package_handle_standard_args(math DEFAULT_MSG
     math_IMPLIB math_INCLUDE_DIR)
 elseif(LINUX)
+  find_path(math_INCLUDE_DIR
+    glibc.modulemap
+    PATHS ${Swift_SDKROOT}/usr/lib/swift/linux/${SwiftSupplemental_ARCH_SUBDIR})
+  find_path(math_GLIBC_DIR
+    Glibc.swiftmodule
+    PATHS ${Swift_SDKROOT}/usr/lib/swift/linux)
+  find_library(math_LIBRARY NAMES m)
   if(math_STATIC)
-    find_path(math_INCLUDE_DIR
-      "_math.swiftinterface"
-      HINTS "${Swift_SDKROOT}/usr/lib/swift_static")
-    find_library(math_LIBRARY
-      NAMES "libm.a"
-      HINTS "${Swift_SDKROOT}/usr/lib/swift_static/linux")
     add_library(math STATIC IMPORTED GLOBAL)
   else()
-    find_path(math_INCLUDE_DIR
-      "_math.swiftinterface"
-      HINTS "${Swift_SDKROOT}/usr/lib/swift")
-    find_library(math_LIBRARY
-      NAMES "libm.so"
-      HINTS "${Swift_SDKROOT}/usr/lib/swift/linux")
     add_library(math SHARED IMPORTED GLOBAL)
   endif()
   set_target_properties(math PROPERTIES
-    IMPORTED_LOCATION "${math_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${math_INCLUDE_DIR}")
+    IMPORTED_LOCATION ${math_LIBRARY}
+    INTERFACE_INCLUDE_DIRECTORIES ${math_INCLUDE_DIR} ${math_GLIBC_DIR})
   find_package_handle_standard_args(math DEFAULT_MSG
     math_LIBRARY math_INCLUDE_DIR)
 else()
